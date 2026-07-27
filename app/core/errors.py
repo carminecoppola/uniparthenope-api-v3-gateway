@@ -49,6 +49,14 @@ class Forbidden(ApiError):
     status, code, title = 403, "forbidden", "Operazione non consentita"
 
 
+class ApiKeyRequired(ApiError):
+    status, code, title = 401, "api_key_required", "API key richiesta"
+
+
+class InvalidApiKey(ApiError):
+    status, code, title = 401, "invalid_api_key", "API key non valida o revocata"
+
+
 class NotFound(ApiError):
     status, code, title = 404, "not_found", "Risorsa non trovata"
 

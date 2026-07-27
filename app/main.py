@@ -9,11 +9,20 @@ from fastapi.responses import JSONResponse
 
 from .api.v3.routes import router
 from .api.v3.upstream import register_upstream_routes
+from .core.apikeys import ApiKeyStore
 from .core.cache import TTLCache
 from .core.config import settings
 from .core.errors import ApiError
 from .core.ratelimit import TokenBucket
 from .core.security import SessionStore
+
+# Percorsi raggiungibili senza API key: documentazione pubblica (richiesta
+# del prof: le API restano sempre pubbliche/documentate) + l'endpoint per
+# richiederne una. Tutto il resto richiede 'X-API-Key'.
+_API_KEY_EXEMPT_PATHS = {
+    "/v3/docs", "/v3/openapi.json", "/v3/redoc",
+    "/v3/api-keys", "/v3/health",
+}
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -32,6 +41,7 @@ def create_app() -> FastAPI:
     app.state.login_bucket = TokenBucket(capacity=settings.login_rate_per_min)
     app.state.cache = TTLCache()
     app.state.plan_cache = TTLCache()
+    app.state.api_keys = ApiKeyStore()
 
     if settings.mock_esse3:
         from .adapters.esse3.mock import MockEsse3Adapter
@@ -63,6 +73,25 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-Id"] = request.state.request_id
         return response
+
+    @app.middleware("http")
+    async def api_key_middleware(request: Request, call_next):
+        path = request.url.path
+        if path in _API_KEY_EXEMPT_PATHS or request.method == "OPTIONS":
+            return await call_next(request)
+        try:
+            raw_key = request.headers.get("X-API-Key")
+            record = request.app.state.api_keys.touch_and_check(raw_key)
+        except ApiError as exc:
+            # Middleware esterno all'ExceptionMiddleware di Starlette: gli
+            # errori qui non passerebbero dagli @app.exception_handler, quindi
+            # costruiamo qui stesso la stessa risposta RFC 9457.
+            request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex[:12]
+            return JSONResponse(status_code=exc.status,
+                                content=exc.problem(request_id),
+                                media_type="application/problem+json")
+        request.state.api_key_owner = record.owner
+        return await call_next(request)
 
     @app.exception_handler(ApiError)
     async def api_error_handler(request: Request, exc: ApiError):

@@ -19,6 +19,9 @@ except Exception as exc:  # pragma: no cover
 class ApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(create_app())
+        key_response = self.client.post("/v3/api-keys", json={"owner": "test-suite"})
+        self.assertEqual(key_response.status_code, 201)
+        self.client.headers.update({"X-API-Key": key_response.json()["apiKey"]})
         response = self.client.post("/v3/auth/sessions",
                                     json={"username": "tester", "password": "demo"})
         self.assertEqual(response.status_code, 201)
@@ -38,6 +41,8 @@ class ApiTests(unittest.TestCase):
 
     def test_login_rate_limit_429(self):
         client = TestClient(create_app())
+        key_response = client.post("/v3/api-keys", json={"owner": "test-rate-limit"})
+        client.headers.update({"X-API-Key": key_response.json()["apiKey"]})
         for _ in range(5):
             client.post("/v3/auth/sessions",
                         json={"username": "burst", "password": "demo"})

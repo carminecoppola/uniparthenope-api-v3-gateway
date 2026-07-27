@@ -70,6 +70,24 @@ class DeviceBody(BaseModel):
     platform: str = "unknown"
 
 
+class ApiKeyRequestBody(BaseModel):
+    owner: str   # nome persona/app/team richiedente, solo per tracciabilità
+
+
+# ---------------------------------------------------------------- api key
+
+@router.post("/api-keys", status_code=201, tags=["api-keys"])
+def request_api_key(body: ApiKeyRequestBody, request: Request):
+    """Richiesta pubblica e self-service di una API key (nessuna approvazione
+    manuale, come OpenTopography): l'API resta pubblica e documentata, ma
+    ogni chiamata successiva deve portare la chiave in 'X-API-Key'."""
+    if not body.owner.strip():
+        raise ValidationFailed("Il campo 'owner' non può essere vuoto.")
+    key = request.app.state.api_keys.issue(body.owner.strip())
+    return {"apiKey": key, "owner": body.owner.strip(),
+            "usage": "Aggiungi l'header 'X-API-Key: <apiKey>' ad ogni richiesta."}
+
+
 # ---------------------------------------------------------------- auth
 
 @router.post("/auth/sessions", status_code=201, tags=["auth"])
