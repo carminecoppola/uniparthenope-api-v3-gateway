@@ -150,16 +150,21 @@ class Esse3Adapter:
         data = self._t.json_of(response, LOGIN_PATH)
         if not isinstance(data, dict):
             raise UpstreamContract("Login: atteso oggetto JSON.")
+        # La risposta reale di Esse3 annida i dati anagrafici e le carriere
+        # dentro "user", non alla radice (bug corretto il 27/07/2026 dopo
+        # test con account reale: la radice ha solo
+        # authToken/credentials/expPwd/internalAuthToken/profili/user).
+        user = data.get("user") if isinstance(data.get("user"), dict) else data
         profile = {
             "username": self._username,
-            "firstName": data.get("firstName") or data.get("nome") or "",
-            "lastName": data.get("lastName") or data.get("cognome") or "",
-            "email": data.get("email") or "",
+            "firstName": user.get("firstName") or user.get("nome") or "",
+            "lastName": user.get("lastName") or user.get("cognome") or "",
+            "email": user.get("email") or data.get("email") or "",
             "personId": _find_first(data, "personId", "persId", "pers_id"),
             "idAb": _find_first(data, "idAb", "id_ab"),
         }
         careers: list[Career] = []
-        for tratto in data.get("trattiCarriera", []) or []:
+        for tratto in user.get("trattiCarriera", []) or []:
             det = tratto.get("dettaglioTratto") or tratto
             career_id = _int_or_none(det.get("aaIscrId") or det.get("iscrId")
                                      or det.get("careerId"))
@@ -170,7 +175,10 @@ class Esse3Adapter:
                 mat_id=_int_or_none(det.get("matId")),
                 stu_id=_int_or_none(det.get("stuId")),
                 cds_id=_int_or_none(det.get("cdsId")),
-                cds_des=str(det.get("cdsDes") or ""),
+                # cdsDes vive sul tratto esterno, non in dettaglioTratto
+                # (stesso tipo di errore del bug principale, trovato con
+                # lo stesso test su account reale).
+                cds_des=str(tratto.get("cdsDes") or det.get("cdsDes") or ""),
                 active=True,
             ))
         if not careers:
