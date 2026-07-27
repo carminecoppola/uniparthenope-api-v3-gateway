@@ -12,6 +12,7 @@ docker build -t uniparthenope-v3-gateway .
 docker rm -f uniparthenope-v3-gateway 2>/dev/null
 docker run -d --name uniparthenope-v3-gateway \
   --restart unless-stopped \
+  --user $(id -u):$(id -g) \
   --log-opt max-size=10m --log-opt max-file=3 \
   -p 127.0.0.1:8080:8080 \
   -e MOCK_ESSE3=0 \

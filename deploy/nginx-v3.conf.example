@@ -1,0 +1,52 @@
+# Reverse proxy per il gateway v3, da consegnare a chi ha accesso root
+# sul server (montella@192.167.9.47) per l'esposizione pubblica.
+#
+# Perché un sottodominio dedicato (api-v3.uniparthenope.it) e non
+# api.uniparthenope.it: il gateway rispecchia anche i vecchi indirizzi
+# legacy (stesso path, es. /UniparthenopeApp/v1/login) per compatibilità.
+# Se esposto sullo STESSO dominio del sistema v1 reale, i due andrebbero
+# in conflitto (due servizi diversi che rispondono agli stessi path).
+# Un sottodominio separato tiene i due mondi isolati finché non si decide
+# di sostituire davvero il v1.
+#
+# Il gateway ascolta solo su 127.0.0.1:8080 (container Docker, vedi
+# DEPLOY_NOTES.md) — nginx è l'unico punto d'ingresso da internet.
+
+server {
+    listen 80;
+    server_name api-v3.uniparthenope.it;
+
+    # redirect a HTTPS una volta ottenuto il certificato (vedi sotto)
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api-v3.uniparthenope.it;
+
+    # Certificato da richiedere per il nuovo sottodominio, es. con certbot:
+    #   certbot certonly --nginx -d api-v3.uniparthenope.it
+    # (non riusare il certificato di api.uniparthenope.it: è emesso solo
+    # per quel nome, un browser/client lo rifiuterebbe su questo host)
+    ssl_certificate     /etc/letsencrypt/live/api-v3.uniparthenope.it/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api-v3.uniparthenope.it/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        # IP reale del chiamante: il gateway ha --proxy-headers attivo e
+        # usa questo per il rate limiting sul login (senza, vedrebbe
+        # sempre l'IP di nginx e il limite per-IP sarebbe inutile)
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # allineati a UPSTREAM_TIMEOUT_S=25 del gateway
+        proxy_connect_timeout 10s;
+        proxy_read_timeout    30s;
+    }
+}

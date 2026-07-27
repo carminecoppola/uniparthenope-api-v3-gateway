@@ -14,6 +14,14 @@ COPY app/ ./app/
 ENV LOG_DIR=/app/logs
 RUN mkdir -p /app/logs
 
+# Mai come root: altrimenti i file scritti in logs/ (montato dall'host)
+# risultano di proprietà di root e illeggibili/non sovrascrivibili
+# dall'utente che gestisce il server (visto nell'incidente del 27/07/2026).
+# Se l'host monta logs/ con un proprietario diverso da 1000, sovrascrivi con
+# `docker run --user $(id -u):$(id -g) ...`.
+RUN useradd --uid 1000 --create-home appuser && chown -R appuser /app
+USER appuser
+
 EXPOSE 8080
 
 # Nota sui log: uvicorn scrive richieste/avvio sul proprio logger (visibile
