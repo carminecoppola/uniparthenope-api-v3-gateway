@@ -3,6 +3,11 @@
 Questa release segue il requisito del professore: **l'app esistente non deve
 accorgersi del refactoring**.
 
+## Autori
+
+- Nicola Salvati — progettazione e implementazione del gateway v3.
+- Carmine Coppola — audit di sicurezza pre-deploy, hardening, deploy sul cluster.
+
 ## Contratto esterno invariato
 
 Le 91 operazioni della spec ufficiale sono esposte direttamente agli stessi
