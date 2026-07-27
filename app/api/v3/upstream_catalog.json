@@ -1,0 +1,1995 @@
+{
+  "source": "swagger.json",
+  "swaggerVersion": "2.0",
+  "apiVersion": "1.0",
+  "pathCount": 88,
+  "operationCount": 91,
+  "operations": [
+    {
+      "tag": "Access",
+      "method": "GET",
+      "path": "/Access/v1/classroom",
+      "operationId": "get_access",
+      "summary": "Get classroom",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Access",
+      "method": "POST",
+      "path": "/Access/v1/classroom",
+      "operationId": "post_access",
+      "summary": "Modify classroom",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/access"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Access",
+      "method": "GET",
+      "path": "/Access/v1/covidStatement",
+      "operationId": "get_certification",
+      "summary": "Get covidStatement",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Access",
+      "method": "POST",
+      "path": "/Access/v1/covidStatement",
+      "operationId": "post_certification",
+      "summary": "Modify covidStatement",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/covidStatement"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Access",
+      "method": "GET",
+      "path": "/Access/v1/covidStatementMessage",
+      "operationId": "get_covid_alert",
+      "summary": "Get codiv alert message",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Access",
+      "method": "GET",
+      "path": "/Access/v1/getCSV",
+      "operationId": "get_get_complete_csv",
+      "summary": "Get CSV access",
+      "protected": true,
+      "produces": [
+        "text/csv"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v1/QrCodeStatus/{tabletId}",
+      "operationId": "get_qr_code_status",
+      "summary": "Get qr-code status by interval",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "tabletId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v1/QrCodeStatusAll",
+      "operationId": "get_qr_code_status_all",
+      "summary": "Get all buildings qr-code status",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v1/ScanHistory",
+      "operationId": "get_scan_history",
+      "summary": "Get university access history",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v1/SyncMachine",
+      "operationId": "post_sync_machine",
+      "summary": "Synchronize Scanner",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Machine"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v1/checkQrCode",
+      "operationId": "post_qr_code_check",
+      "summary": "Check QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Token"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v1/generateQrCode",
+      "operationId": "get_qr_code",
+      "summary": "Get qr-code image",
+      "protected": true,
+      "produces": [
+        "image/png"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v2/checkQrCode",
+      "operationId": "post_qr_code_check_v2",
+      "summary": "Check QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Token"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v2/generateQrCode",
+      "operationId": "get_qr_code_v2",
+      "summary": "Get qr-code image",
+      "protected": true,
+      "produces": [
+        "image/png"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v2/generateQrCodeSPID",
+      "operationId": "post_qr_code_v2_spid",
+      "summary": "Get qr-code image",
+      "protected": false,
+      "produces": [
+        "image/png"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v2/getContactInfo",
+      "operationId": "post_get_contact_info",
+      "summary": "Send Info",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/IdInfo"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v2/sendInfo",
+      "operationId": "post_send_info",
+      "summary": "Send Info",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/TokenNotificationInfo"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v2/sendRequestInfo",
+      "operationId": "post_send_request_info",
+      "summary": "Send request Info",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/TokenNotification"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v3/checkGreenPass",
+      "operationId": "post_green_pass_check",
+      "summary": "EU digital COVID certificate QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Token_GP"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v3/checkGreenPassMobile",
+      "operationId": "post_green_pass_check_mobile",
+      "summary": "EU Digital COVID certificate Mobile QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Token_GP_Mobile"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v3/checkGreenPassNoScan",
+      "operationId": "post_green_pass_check_no_scan",
+      "summary": "EU Digital Covid QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/id_noScan"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v3/checkOperator",
+      "operationId": "post_check_operator",
+      "summary": "Check Operator QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Token_operator"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "POST",
+      "path": "/Badges/v3/checkQrCode",
+      "operationId": "post_qr_code_check_v3",
+      "summary": "Check QrCode",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/Token"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Badges",
+      "method": "DELETE",
+      "path": "/Badges/v3/greenPassRemove",
+      "operationId": "delete_green_pass_remove",
+      "summary": "Remove EU digital COVID certificate",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v3/greenPassStatus",
+      "operationId": "get_green_pass_status",
+      "summary": "GreenPass Status",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Badges",
+      "method": "GET",
+      "path": "/Badges/v3/listGreenPass",
+      "operationId": "get_list_green_pass",
+      "summary": "List Validity Certificazione Verde COVID-19",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Bus",
+      "method": "GET",
+      "path": "/Bus/v1/bus/{sede}",
+      "operationId": "get_anm_bus",
+      "summary": "Anm Bus",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "sede",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "Bus",
+      "method": "GET",
+      "path": "/Bus/v1/orari/{sede}",
+      "operationId": "get_anm_schedule",
+      "summary": "Bus Schedule",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "sede",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "Eating",
+      "method": "POST",
+      "path": "/Eating/v1/addMenu",
+      "operationId": "post_add_menu",
+      "summary": "Add new menu",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/menu"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Eating",
+      "method": "GET",
+      "path": "/Eating/v1/getAllToday",
+      "operationId": "get_get_all_today",
+      "summary": "Get today all menu",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Eating",
+      "method": "GET",
+      "path": "/Eating/v1/getMenuBar",
+      "operationId": "get_get_menu_bar",
+      "summary": "Get all specified user's menu",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Eating",
+      "method": "POST",
+      "path": "/Eating/v1/newRisto",
+      "operationId": "post_new_risto",
+      "summary": "New restaurant",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/restaurant credentials"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Eating",
+      "method": "POST",
+      "path": "/Eating/v1/newUser",
+      "operationId": "post_new_user",
+      "summary": "New user",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/user credentials"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Eating",
+      "method": "GET",
+      "path": "/Eating/v1/removeMenu/{id}",
+      "operationId": "get_remove_menu",
+      "summary": "Remove menu by Id",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "POST",
+      "path": "/GAUniparthenope/v1/ReservationByProf",
+      "operationId": "post_reservation_by_prof",
+      "summary": "Set Reservation to student",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/reservation_prof"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/Reservations",
+      "operationId": "get_reservation",
+      "summary": "Get Reservations",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "POST",
+      "path": "/GAUniparthenope/v1/Reservations",
+      "operationId": "post_reservation",
+      "summary": "Set Reservation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/reservation"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "DELETE",
+      "path": "/GAUniparthenope/v1/Reservations/{id_prenotazione}",
+      "operationId": "delete_reservation",
+      "summary": "Delete Reservation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "id_prenotazione",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "POST",
+      "path": "/GAUniparthenope/v1/ServicesReservation",
+      "operationId": "post_services_reservation",
+      "summary": "Set Service Reservation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/services_reservation"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/getEvents",
+      "operationId": "get_get_events",
+      "summary": "Get Events",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/getLectures/{matId}",
+      "operationId": "get_get_lectures",
+      "summary": "Get All Own Lectures",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/getProfLectures/{aaId}",
+      "operationId": "get_get_prof_lectures",
+      "summary": "Get All Prof Lectures",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "aaId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/getStudentsList/{id_lezione}",
+      "operationId": "get_get_students_list",
+      "summary": "Get Students Lists",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "id_lezione",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/getTodayLecture/{matId}",
+      "operationId": "get_get_today_lecture",
+      "summary": "Get Today Lectures",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v1/getTodayServices",
+      "operationId": "get_get_today_services",
+      "summary": "Get Today Services",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "POST",
+      "path": "/GAUniparthenope/v2/RoomsReservation",
+      "operationId": "post_rooms_reservation",
+      "summary": "Set Rooms Reservation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/services_reservation"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "DELETE",
+      "path": "/GAUniparthenope/v2/RoomsReservation/{id_prenotazione}",
+      "operationId": "delete_rooms_reservation",
+      "summary": "Delete Reservation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "id_prenotazione",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v2/WeekReservationReport/{days}",
+      "operationId": "get_week_reservation_report",
+      "summary": "Get N days room reservation csv",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "days",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v2/checkStudentsPresence/{id_lezione}/{building}/{start_time}/{end_time}",
+      "operationId": "get_check_students_presence",
+      "summary": "Check student's presence",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "id_lezione",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "building",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "start_time",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "end_time",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v2/getAllGACourses",
+      "operationId": "get_get_all_ga_courses",
+      "summary": "Get all GA courses",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v2/getAllTodayRooms",
+      "operationId": "get_get_all_today_rooms",
+      "summary": "Get ALl Today Rooms",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v2/getCourseLectures/{type}",
+      "operationId": "get_get_ga_lectures",
+      "summary": "Get GA Lectures",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "type",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "GAUniparthenope",
+      "method": "GET",
+      "path": "/GAUniparthenope/v2/getStudentsListCSV/{id_lezione}",
+      "operationId": "get_get_students_list_csv",
+      "summary": "Get CSV students list",
+      "protected": true,
+      "produces": [
+        "text/csv"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "id_lezione",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "Notifications",
+      "method": "GET",
+      "path": "/Notifications/v1/getCdsId",
+      "operationId": "get_get_cds_id",
+      "summary": "Get all cdsId",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "Notifications",
+      "method": "POST",
+      "path": "/Notifications/v1/notificationByCdsId",
+      "operationId": "post_notification_by_cds_id",
+      "summary": "Send notification by cdsId",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/notification_cdsId"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Notifications",
+      "method": "POST",
+      "path": "/Notifications/v1/notificationByUsername",
+      "operationId": "post_notification_by_username",
+      "summary": "Send notification by username",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/notification_username"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Notifications",
+      "method": "POST",
+      "path": "/Notifications/v1/registerDevice",
+      "operationId": "post_register_device",
+      "summary": "Register device",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/devices_info"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Notifications",
+      "method": "POST",
+      "path": "/Notifications/v1/unregisterDevice",
+      "operationId": "post_unregister_device",
+      "summary": "Unregister device",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/remove_devices_info"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "Reports",
+      "method": "POST",
+      "path": "/Reports/v1/getCSV",
+      "operationId": "post_reports_csv",
+      "summary": "Return CSV report daily access",
+      "protected": true,
+      "produces": [
+        "text/csv"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/report_data"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/anagrafica/{Id}",
+      "operationId": "get_anagrafica",
+      "summary": "Get personal info",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "Id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/avvisi/{size}",
+      "operationId": "get_rss_avvisi",
+      "summary": "Get avvisi",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "size",
+          "in": "path",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/current_aa/{cdsId}",
+      "operationId": "get_current_aa",
+      "summary": "Get current AA",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/image/{personId}",
+      "operationId": "get_personal_image",
+      "summary": "Get personale image",
+      "protected": true,
+      "produces": [
+        "image/jpg"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "personId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/image_prof/{idAb}",
+      "operationId": "get_prof_image",
+      "summary": "Get personale image",
+      "protected": true,
+      "produces": [
+        "image/jpg"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "idAb",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/infoCourse/{adLogId}",
+      "operationId": "get_info_course",
+      "summary": "Get info course",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "adLogId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/news/{size}",
+      "operationId": "get_rss_news",
+      "summary": "Get news",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "size",
+          "in": "path",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/persone/{nome_completo}",
+      "operationId": "get_info_persone",
+      "summary": "Get info person",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "nome_completo",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/privacy",
+      "operationId": "get_privacy",
+      "summary": "Get privacy policy",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/recentAD/{adId}",
+      "operationId": "get_recent_ad",
+      "summary": "Get recent AD",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "adId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/general/sedi",
+      "operationId": "get_sedi",
+      "summary": "Get university places",
+      "protected": false,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/login",
+      "operationId": "get_login",
+      "summary": "Server Login",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/logout",
+      "operationId": "get_logout",
+      "summary": "Server Logout",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/professor/detailedInfo/{docenteId}",
+      "operationId": "get_det_info",
+      "summary": "Get Detailed Prof Information",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "docenteId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/professor/getCourses/{aaId}",
+      "operationId": "get_get_courses",
+      "summary": "Get Courses",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "aaId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/professor/getSession",
+      "operationId": "get_get_session",
+      "summary": "Get Session",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/professor/getStudentList/{cdsId}/{adId}/{appId}",
+      "operationId": "get_get_student_list",
+      "summary": "Get Courses",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "adId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "appId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/average/{matId}/{value}",
+      "operationId": "get_get_average",
+      "summary": "Get average exams",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "POST",
+      "path": "/UniparthenopeApp/v1/students/bookExam/{cdsId}/{adId}/{appId}",
+      "operationId": "post_book_exam",
+      "summary": "Book an exam",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "adId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "appId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "payload",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/definitions/body"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/checkAppello/{cdsId}/{adId}",
+      "operationId": "get_check_appello",
+      "summary": "Check Appello",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "adId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/checkExams/{matId}/{adsceId}",
+      "operationId": "get_check_exam",
+      "summary": "Check passed exams",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "adsceId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/checkPrenotazione/{cdsId}/{adId}/{appId}/{stuId}",
+      "operationId": "get_check_prenotazione",
+      "summary": "Check prenotazioni",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "adId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "appId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "stuId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "DELETE",
+      "path": "/UniparthenopeApp/v1/students/deleteExam/{cdsId}/{adId}/{appId}/{stuId}",
+      "operationId": "delete_delete_reservation",
+      "summary": "Delete a reservation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "adId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "appId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "stuId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/departmentInfo/{stuId}",
+      "operationId": "get_dep_info",
+      "summary": "Get Department Information",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "stuId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/exams/{stuId}/{pianoId}",
+      "operationId": "get_get_exams",
+      "summary": "Get exams",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "stuId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "pianoId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/getProfessors/{aaId}/{cdsId}",
+      "operationId": "get_get_professors",
+      "summary": "Get professor's list",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "aaId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "cdsId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/getReservations/{matId}",
+      "operationId": "get_get_reservations",
+      "summary": "Get reservations",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/pianoId/{stuId}",
+      "operationId": "get_get_piano_id",
+      "summary": "Get Piano ID",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "stuId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/taxes/{persId}",
+      "operationId": "get_taxes",
+      "summary": "Taxes situation",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "persId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v1/students/totalExams/{matId}",
+      "operationId": "get_get_total_exams",
+      "summary": "Get total exams",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v2/login",
+      "operationId": "get_login_v2",
+      "summary": "Server Login",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": []
+    },
+    {
+      "tag": "UniparthenopeApp",
+      "method": "GET",
+      "path": "/UniparthenopeApp/v2/students/myExams/{matId}",
+      "operationId": "get_my_exams",
+      "summary": "My Exams",
+      "protected": true,
+      "produces": [
+        "application/json"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "parameters": [
+        {
+          "name": "matId",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    }
+  ]
+}

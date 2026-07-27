@@ -1,0 +1,21 @@
+caso,versione,metodo,url,http,ms,byte,payload_conforme,esito,note
+1. Login corretto,v3,POST,http://localhost:8080/v3/auth/sessions,201,5.7,413,True,PASSA,token emessi; la password non serve piu' al client
+1. Login corretto,v1/v2,GET,https://api.uniparthenope.it/UniparthenopeApp/v1/login,200,758.2,1619,True,PASSA,200 con profilo (1619 B); con Basic la password va rimandata a ogni chiamata | 5 campioni: min 718 / mediana 758 / max 774 ms
+2. Credenziali errate,v3,POST,http://localhost:8080/v3/auth/sessions,401,4.8,225,False,FALLISCE,content-type None inatteso
+2. Credenziali errate,v1/v2,GET,https://api.uniparthenope.it/UniparthenopeApp/v1/login,401,3425.8,34,True,PASSA,401 corretto | 5 campioni: min 3145 / mediana 3426 / max 3622 ms
+3. getEvents (dato statico ripetuto),v1/v2,GET,https://api.uniparthenope.it/GAUniparthenope/v1/getEvents,200,17673.9,19975,True,PASSA,19975 B | 5 campioni: min 16313 / mediana 17674 / max 18518 ms
+4. general/privacy,v1/v2,GET,https://api.uniparthenope.it/UniparthenopeApp/v1/general/privacy,500,242.0,37,False,FALLISCE,500: fallimento su endpoint pubblico | 5 campioni: min 201 / mediana 242 / max 329 ms
+5. general/news,v1/v2,GET,https://api.uniparthenope.it/UniparthenopeApp/v1/general/news,404,67.7,232,False,FALLISCE,"atteso 200, ottenuto 404 | 5 campioni: min 66 / mediana 68 / max 137 ms"
+6. Elenco appelli,v3,GET,http://localhost:8080/v3/exam-sessions,200,2.7,502,True,PASSA,"3 appelli; prenotabilita' decisa dal server, date ISO-8601 | 5 campioni: min 2 / mediana 3 / max 7 ms"
+6. Elenco appelli,v1/v2,-,-,,,,,SALTATO,Richiede cdsId/adId della tua carriera: compilare a mano dopo averli letti dalla risposta di login.
+7. Prenotazione (in piano),v3,POST,http://localhost:8080/v3/exam-sessions/501/reservations?dryRun=true,200,2.8,84,True,PASSA,"adsceId risolto dal libretto (91001), mai None"
+8. Prenotazione (fuori piano),v3,POST,http://localhost:8080/v3/exam-sessions/501/reservations?dryRun=true,422,2.3,268,True,PASSA,errore di dominio prima di toccare l'upstream
+7-8. Prenotazione,v1/v2,-,-,,,,,SALTATO,Non eseguita: sarebbe una modifica reale sulla tua carriera. La v1/v2 non offre un equivalente di dryRun.
+9. Foto profilo,v3,GET,http://localhost:8080/v3/students/me/photo?size=128,200,2.5,68,False,FALLISCE,content-type '' non e' un'immagine | 5 campioni: min 2 / mediana 2 / max 1175 ms
+9-10. Foto,v1/v2,-,-,,,,,SALTATO,Percorso foto non confermato dalla spec pubblica: cercarlo in swagger.json e compilare la riga.
+11. Autobus,v3,GET,http://localhost:8080/v3/transport/bus/routes,200,1.6,373,True,PASSA,"2 elementi, stale=None | 5 campioni: min 1 / mediana 2 / max 2 ms"
+12. Mense,v3,GET,http://localhost:8080/v3/dining/menus,200,1.3,218,True,PASSA,"1 elementi, stale=None | 5 campioni: min 1 / mediana 1 / max 2 ms"
+13. Limite tentativi login,v3,POST,http://localhost:8080/v3/auth/sessions,429,,,True,PASSA,429 con Retry-After=None
+13. Limite tentativi login,v1/v2,-,-,,,,,SALTATO,Non eseguita sull'upstream: sarebbe traffico abusivo non autorizzato e rischierebbe il blocco del tuo account.
+14. Token revocato dopo logout,v3,GET,http://localhost:8080/v3/exam-sessions,401,1.0,220,True,PASSA,token revocato immediatamente lato server
+14. Token revocato dopo logout,v1/v2,-,-,,,,,SALTATO,Con Basic Auth non esiste revoca lato server: la credenziale resta valida finche' non cambi la password.
