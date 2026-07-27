@@ -1,0 +1,19 @@
+services:
+  gateway:
+    build: .
+    restart: unless-stopped
+    ports:
+      # solo localhost: l'esposizione pubblica passa da nginx (task separato),
+      # niente porta aperta direttamente su internet.
+      - "127.0.0.1:8080:8080"
+    environment:
+      MOCK_ESSE3: "${MOCK_ESSE3:-0}"
+      UPSTREAM_BASE: "${UPSTREAM_BASE:-https://api.uniparthenope.it}"
+      UPSTREAM_TIMEOUT_S: "${UPSTREAM_TIMEOUT_S:-25}"
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/v3/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

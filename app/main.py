@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import logging
+import logging.handlers
+import os
 import uuid
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 
 from .api.v3.routes import router
 from .api.v3.upstream import register_upstream_routes
@@ -24,8 +28,36 @@ _API_KEY_EXEMPT_PATHS = {
     "/v3/api-keys", "/v3/health",
 }
 
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s %(levelname)s %(name)s %(message)s")
+# Solo per far comparire il bottone "Authorize" su /v3/docs: l'enforcement
+# vero resta nel middleware sotto (auto_error=False, questa dipendenza da
+# sola non blocca nulla).
+api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False,
+                              description="Richiedine una con POST /v3/api-keys")
+
+def _configure_logging() -> None:
+    """Tutto in una cartella logs/ dedicata (LOG_DIR override-abile), con
+    rotazione automatica: niente più file che crescono all'infinito (fix
+    dello stesso problema visto con src.bin sul sistema legacy), e facile
+    da recuperare per il debug ('logs/app.log' + backup .1, .2, ...)."""
+    log_dir = Path(os.environ.get("LOG_DIR", "logs"))
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_dir / "app.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(file_handler)
+    root.addHandler(console_handler)
+
+
+_configure_logging()
 
 
 def create_app() -> FastAPI:
@@ -115,8 +147,8 @@ def create_app() -> FastAPI:
             "code": "internal_error", "requestId": request_id,
         }, media_type="application/problem+json")
 
-    app.include_router(router, prefix="/v3")
-    register_upstream_routes(app)
+    app.include_router(router, prefix="/v3", dependencies=[Depends(api_key_scheme)])
+    register_upstream_routes(app, api_key_dependency=Depends(api_key_scheme))
     return app
 
 

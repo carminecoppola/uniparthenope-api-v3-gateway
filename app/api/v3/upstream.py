@@ -190,13 +190,15 @@ def _factory(operation, legacy_root=False):
     return endpoint
 
 
-def register_upstream_routes(app) -> None:
+def register_upstream_routes(app, api_key_dependency=None) -> None:
     """Registra 91 rotte legacy IDENTICHE e il namespace v3 opzionale."""
+    deps = [api_key_dependency] if api_key_dependency is not None else []
     for operation in CATALOG["operations"]:
         common = {
             "methods": [operation["method"]],
             "summary": operation.get("summary") or operation["operationId"],
             "response_class": Response,
+            "dependencies": deps,
         }
         # Contratto richiesto dal professore: stesso path e stesso metodo.
         app.add_api_route(
