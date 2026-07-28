@@ -360,6 +360,83 @@ class Esse3Adapter:
                                auth=self._auth)
         return mappers.map_plan(self._t.json_of(resp, EXAMS_PATH), career_id=career_id)
 
+    def probe_appelli(self, career: Career, ad_id: int) -> dict:
+        """DIAGNOSTICO TEMPORANEO (28/07/2026): la chiamata diretta a
+        esse3.cineca.it risponde 403/412 con credenziali reali per ogni
+        adId testato. Qui si confrontano più varianti della stessa
+        richiesta con quella che invece FUNZIONA (proxy legacy), stessa
+        sessione già autenticata — nessuna credenziale in più richiesta,
+        nessuna esposta nell'output. Da rimuovere una volta capita la causa.
+        """
+        if self._direct is None:
+            return {"error": "direct transport non configurato"}
+
+        cds_id = career.cds_id
+        path = CALESA_APPELLI_PATH.format(cds_id=cds_id, ad_id=ad_id)
+        risultati = {}
+
+        def registra(nome, resp=None, eccezione=None):
+            if eccezione is not None:
+                risultati[nome] = {"errore": str(eccezione)}
+                return
+            corpo = resp.text
+            risultati[nome] = {
+                "status": resp.status_code,
+                "body": corpo[:400],
+                "headers": dict(resp.headers),
+            }
+
+        # 1) come oggi: start/limit
+        try:
+            r = self._direct.client.get(path, auth=self._auth,
+                                        params={"start": 0, "limit": 200})
+            registra("direct_start_limit", r)
+        except Exception as exc:
+            registra("direct_start_limit", eccezione=exc)
+
+        # 2) nessun parametro di paginazione
+        try:
+            r = self._direct.client.get(path, auth=self._auth)
+            registra("direct_no_params", r)
+        except Exception as exc:
+            registra("direct_no_params", eccezione=exc)
+
+        # 3) page/rows invece di start/limit
+        try:
+            r = self._direct.client.get(path, auth=self._auth,
+                                        params={"page": 1, "rows": 200})
+            registra("direct_page_rows", r)
+        except Exception as exc:
+            registra("direct_page_rows", eccezione=exc)
+
+        # 4) header di profilo esplicito (visto in login_v1.py per i docenti)
+        try:
+            r = self._direct.client.get(
+                path, auth=self._auth,
+                headers={"X-Esse3-User-Profile": "STUDENTE"})
+            registra("direct_with_profile_header", r)
+        except Exception as exc:
+            registra("direct_with_profile_header", eccezione=exc)
+
+        # 5) Accept: application/json esplicito
+        try:
+            r = self._direct.client.get(
+                path, auth=self._auth,
+                headers={"Accept": "application/json"})
+            registra("direct_accept_json", r)
+        except Exception as exc:
+            registra("direct_accept_json", eccezione=exc)
+
+        # 6) confronto: stesso adId sul percorso che FUNZIONA (proxy legacy)
+        try:
+            legacy_path = CHECK_APPELLO_PATH.format(cds_id=cds_id, ad_id=ad_id)
+            r = self._t.client.get(legacy_path, auth=self._auth)
+            registra("legacy_working_proxy", r)
+        except Exception as exc:
+            registra("legacy_working_proxy", eccezione=exc)
+
+        return {"cdsId": cds_id, "adId": ad_id, "risultati": risultati}
+
     def get_exam_sessions(self, career: Career, ad_id=None):
         if ad_id is None:
             raise UpstreamNotConfigured(
