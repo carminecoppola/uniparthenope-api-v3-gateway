@@ -16,6 +16,7 @@ queste costanti derivano dalla documentazione pubblica osservata il
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
@@ -37,6 +38,7 @@ DELETE_PATH = "/UniparthenopeApp/v1/students/deleteExam/{cds_id}/{ad_id}/{app_id
 RESERVATIONS_PATH = "/UniparthenopeApp/v1/students/getReservations/{mat_id}"
 STUDENT_PHOTO_PATH = "/UniparthenopeApp/v1/general/image/{ref}"
 PROFESSOR_PHOTO_PATH = "/UniparthenopeApp/v1/general/image_prof/{ref}"
+CALESA_APPELLI_PATH = "/calesa-service-v1/appelli/{cds_id}/{ad_id}"
 BUS_PATH = "/Bus/v1/bus/{sede}"
 BUS_SCHEDULE_PATH = "/Bus/v1/orari/{sede}"
 DINING_PATH = "/Eating/v1/getAllToday"
@@ -109,14 +111,162 @@ class Esse3Transport:
             raise UpstreamContract(f"Risposta non JSON da {path}") from exc
 
 
+class Esse3DirectTransport:
+    """Client HTTP diretto verso esse3.cineca.it, SOLO per gli appelli.
+
+    Perché non passa dal backend legacy: quello espone solo la prima
+    pagina di `calesa-service-v1/appelli` (nessun parametro start/limit),
+    quindi per un insegnamento con molti appelli storici i client vedono
+    solo i più vecchi. Qui si pagina fino in fondo.
+
+    Credenziali: le STESSE Basic Auth (username:password) dell'utente —
+    confermato che esse3.cineca.it le accetta direttamente, il backend
+    legacy fa esattamente lo stesso passaggio (vedi login_v1.py di
+    riferimento). Circuit breaker separato da quello del backend legacy:
+    un guasto qui non deve far scattare 503 sulle chiamate v1/v2.
+    """
+
+    def __init__(self, base_url: str, timeout_s: float, settings=None) -> None:
+        self.settings = settings
+        self.breaker = CircuitBreaker()
+        self.client = httpx.Client(
+            base_url=base_url, timeout=timeout_s, follow_redirects=True,
+            headers={"User-Agent": "uniparthenope-v3-gateway/1.0"})
+
+    def _get(self, path: str, *, auth, params: dict) -> httpx.Response:
+        self.breaker.guard()
+        try:
+            return self.client.get(path, auth=auth, params=params)
+        except httpx.TimeoutException as exc:
+            self.breaker.record_failure()
+            raise UpstreamTimeout(f"Timeout verso esse3 {path}") from exc
+        except httpx.HTTPError as exc:
+            self.breaker.record_failure()
+            raise UpstreamUnavailable(f"Errore di rete verso esse3 {path}") from exc
+
+    def fetch_page(self, cds_id, ad_id, start: int, page_size: int,
+                   auth) -> httpx.Response:
+        """Una pagina di appelli.
+
+        Prova prima `start`/`limit`. Se esse3 la rifiuta (400/500) prova
+        `page`/`rows` (convenzione paginazione alternativa, usata da altre
+        viste e3rest note): NON ANCORA VERIFICATO con credenziali reali —
+        va confermato al primo uso reale. Se anche il fallback fallisce,
+        si ritorna la risposta ORIGINALE (start/limit), più diretta da
+        diagnosticare di un doppio errore.
+        """
+        path = CALESA_APPELLI_PATH.format(cds_id=cds_id, ad_id=ad_id)
+        response = self._get(path, auth=auth,
+                             params={"start": start, "limit": page_size})
+
+        if response.status_code in (400, 500):
+            page_number = start // page_size + 1
+            fallback = self._get(path, auth=auth,
+                                 params={"page": page_number, "rows": page_size})
+            if fallback.status_code < 400:
+                logger.info(
+                    "APPELLI paginazione start/limit rifiutata (status=%s): "
+                    "uso page/rows, funziona (cdsId=%s adId=%s)",
+                    response.status_code, cds_id, ad_id)
+                response = fallback
+
+        if response.status_code >= 500:
+            self.breaker.record_failure()
+        else:
+            self.breaker.record_success()
+        return response
+
+    def fetch_all_pages(self, cds_id, ad_id, auth, page_size: int,
+                        max_pages: int) -> tuple[list[dict], int, dict | None]:
+        """Scorre tutte le pagine di un AD. Ritorna (righe, status, errore).
+
+        status=200 con righe eventualmente vuote se l'AD non ha appelli;
+        status diverso da 200 solo se la PRIMA pagina fallisce (se una
+        pagina successiva fallisce si tiene quanto raccolto finora, non si
+        butta via un risultato parziale valido).
+        """
+        raccolti: list[dict] = []
+        visti: set = set()
+        start = 0
+
+        for _ in range(max_pages):
+            response = self.fetch_page(cds_id, ad_id, start, page_size, auth)
+
+            if response.status_code != 200:
+                if raccolti:
+                    break
+                try:
+                    errore = response.json()
+                except ValueError:
+                    errore = {"retErrMsg": response.text[:200]}
+                return [], response.status_code, errore
+
+            try:
+                pagina = response.json()
+            except ValueError as exc:
+                raise UpstreamContract(
+                    f"Risposta non JSON da esse3 (cdsId={cds_id} adId={ad_id})") from exc
+
+            if not isinstance(pagina, list) or len(pagina) == 0:
+                break
+
+            nuovi = 0
+            for item in pagina:
+                if not isinstance(item, dict):
+                    continue
+                chiave = item.get("appId")
+                # Se esse3 ignorasse start/limit la seconda pagina sarebbe
+                # identica alla prima: la deduplica evita un loop infinito
+                # silenzioso invece di fidarsi ciecamente della paginazione.
+                if chiave is not None and chiave in visti:
+                    continue
+                visti.add(chiave)
+                raccolti.append(item)
+                nuovi += 1
+
+            if nuovi == 0 or len(pagina) < page_size:
+                break
+            start += page_size
+
+        return raccolti, 200, None
+
+    def fetch_batch(self, cds_id, ad_ids: list, auth, workers: int,
+                    page_size: int, max_pages: int) -> dict:
+        """Più AD in parallelo. Ritorna {adId: {status, items, errMsg}}.
+
+        Un AD in errore (es. 403 fuori piano) non deve buttare giù gli
+        altri: l'errore resta confinato alla sua chiave nel risultato.
+        """
+        def scarica(ad_id):
+            try:
+                righe, status, errore = self.fetch_all_pages(
+                    cds_id, ad_id, auth, page_size, max_pages)
+                if status != 200:
+                    return ad_id, {"status": status,
+                                   "errMsg": (errore or {}).get("retErrMsg", ""),
+                                   "items": []}
+                return ad_id, {"status": 200, "errMsg": "", "items": righe}
+            except Exception as exc:  # AD singolo: mai far cadere l'intero batch
+                logger.warning("APPELLI batch: adId=%s fallito: %s", ad_id, exc)
+                return ad_id, {"status": 500, "errMsg": str(exc), "items": []}
+
+        risultato: dict = {}
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for ad_id, esito in pool.map(scarica, ad_ids):
+                risultato[ad_id] = esito
+        return risultato
+
+
 class Esse3Adapter:
     """Adapter legato a una sessione (credenziali in memoria di processo)."""
 
     name = "esse3"
 
     def __init__(self, transport: Esse3Transport, username: str | None,
-                 password: str | None) -> None:
+                 password: str | None,
+                 direct_transport: "Esse3DirectTransport | None" = None) -> None:
         self._t = transport
+        self._direct = direct_transport
         self._username = username
         self._password = password
         self._piano_ids: dict[int, int] = {}
@@ -213,13 +363,59 @@ class Esse3Adapter:
     def get_exam_sessions(self, career: Career, ad_id=None):
         if ad_id is None:
             raise UpstreamNotConfigured(
-                "L'upstream v1/v2 non espone un elenco appelli aggregato noto: "
-                "specificare adId (?adId=...) oppure configurare il percorso "
-                "aggregato quando confermato dalla spec.")
-        resp = self._t.request("GET", CHECK_APPELLO_PATH.format(cds_id=career.cds_id,
-                                                                ad_id=ad_id),
-                               auth=self._auth)
-        return mappers.map_exam_sessions(self._t.json_of(resp, CHECK_APPELLO_PATH))
+                "Specificare adId (?adId=...) oppure adIds (?adIds=1,2,3) "
+                "per più insegnamenti in una sola chiamata.")
+        if self._direct is None:
+            # Nessun client diretto configurato (es. wiring di test): resta
+            # il passthrough legacy, solo prima pagina.
+            resp = self._t.request("GET", CHECK_APPELLO_PATH.format(
+                cds_id=career.cds_id, ad_id=ad_id), auth=self._auth)
+            return mappers.map_exam_sessions(self._t.json_of(resp, CHECK_APPELLO_PATH))
+
+        settings = self._t.settings
+        page_size = getattr(settings, "appelli_page_size", 200) if settings else 200
+        max_pages = getattr(settings, "appelli_max_pages", 25) if settings else 25
+        righe, status, errore = self._direct.fetch_all_pages(
+            career.cds_id, ad_id, self._auth, page_size, max_pages)
+        if status != 200:
+            raise UpstreamContract(
+                f"esse3 ha risposto {status} per adId={ad_id}: "
+                f"{(errore or {}).get('retErrMsg', '')}")
+        return mappers.map_exam_sessions(righe)
+
+    def get_exam_sessions_batch(self, career: Career, ad_ids: list[int],
+                                workers: int | None = None):
+        """Appelli di più insegnamenti in parallelo (chiamata diretta a esse3,
+        paginata). Ritorna (sessioni_mappate, scartate, errori_per_ad).
+
+        Un adId che fallisce non fa fallire gli altri: finisce in
+        `errori_per_ad` (adId -> messaggio) e viene semplicemente escluso
+        dai risultati, non solleva.
+        """
+        if self._direct is None:
+            raise UpstreamNotConfigured(
+                "Client diretto esse3 non configurato per questa sessione.")
+        settings = self._t.settings
+        page_size = getattr(settings, "appelli_page_size", 200) if settings else 200
+        max_pages = getattr(settings, "appelli_max_pages", 25) if settings else 25
+        default_workers = getattr(settings, "appelli_workers", 5) if settings else 5
+        max_workers = getattr(settings, "appelli_max_workers", 20) if settings else 20
+
+        n = max(1, min(workers or default_workers, max_workers, len(ad_ids)))
+        grezzo = self._direct.fetch_batch(career.cds_id, ad_ids, self._auth,
+                                          n, page_size, max_pages)
+
+        sessioni = []
+        scartate_tot = 0
+        errori: dict[int, str] = {}
+        for ad_id, esito in grezzo.items():
+            if esito["status"] != 200:
+                errori[ad_id] = esito["errMsg"] or f"status {esito['status']}"
+                continue
+            mappate, scartate = mappers.map_exam_sessions(esito["items"])
+            sessioni.extend(mappate)
+            scartate_tot += scartate
+        return sessioni, scartate_tot, errori
 
     # -- prenotazioni ------------------------------------------------------------
     def book_exam(self, career: Career, app_id: int, ad_id: int, adsce_id: int):

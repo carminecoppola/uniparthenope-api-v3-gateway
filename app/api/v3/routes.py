@@ -143,13 +143,33 @@ def my_reservations(session: Session = Depends(get_session)):
 
 @router.get("/exam-sessions", tags=["exams"])
 def exam_sessions(request: Request, adId: int | None = None,
+                  adIds: str | None = None, workers: int | None = None,
                   bookable: bool | None = None,
                   session: Session = Depends(get_session)):
-    """Elenco appelli con `bookable` risolto LATO SERVER (mai euristiche UI)."""
+    """Elenco appelli con `bookable` risolto LATO SERVER (mai euristiche UI).
+
+    `adId` interroga un solo insegnamento (tutte le pagine, non solo la
+    prima). `adIds` (comma-separated) ne interroga più di uno in parallelo
+    lato server — `workers` sceglie quanti insieme (default e cap lato
+    server, vedi APPELLI_WORKERS/APPELLI_MAX_WORKERS): il client NON deve
+    fare il proprio parallelismo se usa `adIds`, lo fa già il gateway.
+    Un adId fallito dentro `adIds` non fa fallire gli altri: risulta in
+    `errors` invece che interrompere la risposta.
+    """
     svc = _booking(request, session)
     career = _career(session)
-    sessions = svc.exam_sessions(career, ad_id=adId)
     plan_ids = {e.ad_id for e in svc.plan(career.career_id)}
+    errors: dict[str, str] = {}
+
+    if adIds:
+        ad_id_list = [int(x) for x in adIds.split(",") if x.strip().isdigit()]
+        if not ad_id_list:
+            raise ValidationFailed("adIds non contiene alcun identificatore valido.")
+        sessions, errori_ad = svc.exam_sessions_batch(career, ad_id_list, workers=workers)
+        errors = {str(k): v for k, v in errori_ad.items()}
+    else:
+        sessions = svc.exam_sessions(career, ad_id=adId)
+
     items = []
     for s in sessions:
         if bookable is not None and s.bookable != bookable:
@@ -157,7 +177,11 @@ def exam_sessions(request: Request, adId: int | None = None,
         item = asdict(s)
         item["inPlan"] = s.ad_id in plan_ids
         items.append(item)
-    return {"items": items, "count": len(items)}
+
+    result = {"items": items, "count": len(items)}
+    if errors:
+        result["errors"] = errors
+    return result
 
 
 @router.post("/exam-sessions/{app_id}/reservations", status_code=201, tags=["exams"])

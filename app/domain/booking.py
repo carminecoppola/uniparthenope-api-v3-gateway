@@ -73,6 +73,21 @@ class BookingService:
             logger.warning("Appelli: %s righe scartate perché malformate", skipped)
         return sessions
 
+    def exam_sessions_batch(self, career, ad_ids: list[int], workers: int | None = None):
+        """Più insegnamenti in una sola chiamata (in parallelo lato server).
+
+        Ritorna (sessioni, errori_per_ad): un adId fallito non fa fallire
+        gli altri, finisce nel dizionario errori invece che nella lista.
+        """
+        sessions, skipped, errori = self._adapter.get_exam_sessions_batch(
+            career, ad_ids, workers=workers)
+        if skipped:
+            logger.warning("Appelli batch: %s righe scartate perché malformate", skipped)
+        if errori:
+            logger.warning("Appelli batch: %s adId falliti su %s richiesti",
+                           len(errori), len(ad_ids))
+        return sessions, errori
+
     # -- prenotazione (fix PRB-12) ----------------------------------------------
     def book(self, career, app_id: int, ad_id: int, aa_off_id: int | None = None,
              dry_run: bool = False) -> dict:

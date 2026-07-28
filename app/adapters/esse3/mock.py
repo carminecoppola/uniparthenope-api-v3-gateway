@@ -70,6 +70,16 @@ class MockEsse3Adapter:
             sessions = [s for s in sessions if s.ad_id == ad_id]
         return sessions, skipped
 
+    def get_exam_sessions_batch(self, career, ad_ids: list[int], workers: int | None = None):
+        """Stessa forma del ritorno dell'adapter reale (sessioni, scartate,
+        errori_per_ad), cosi' la route non deve ramificare tra mock e reale."""
+        sessions, skipped = mappers.map_exam_sessions(_RAW_SESSIONS)
+        ad_ids_set = set(ad_ids)
+        filtrate = [s for s in sessions if s.ad_id in ad_ids_set]
+        errori = {ad_id: "adId inesistente nei dati mock"
+                 for ad_id in ad_ids if ad_id not in {s.ad_id for s in sessions}}
+        return filtrate, skipped, errori
+
     # -- prenotazioni ---------------------------------------------------------
     def book_exam(self, career, app_id: int, ad_id: int, adsce_id: int):
         assert adsce_id is not None, "il servizio non deve mai arrivare qui con None"

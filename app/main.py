@@ -85,14 +85,21 @@ def create_app() -> FastAPI:
             profile, careers = shared.login(username, password)
             return profile, careers, shared
     else:
-        from .adapters.esse3.client import Esse3Adapter, Esse3Transport
+        from .adapters.esse3.client import (Esse3Adapter, Esse3DirectTransport,
+                                            Esse3Transport)
         transport = Esse3Transport(settings.upstream_base,
                                    settings.upstream_timeout_s, settings)
-        app.state.public_adapter = Esse3Adapter(transport, None, None)
+        # Solo per gli appelli: bypassa il backend legacy (niente paginazione
+        # lì) e chiama esse3.cineca.it direttamente. Stesse credenziali
+        # utente, circuit breaker separato dal transport sopra.
+        direct_transport = Esse3DirectTransport(settings.esse3_direct_base,
+                                                 settings.esse3_direct_timeout_s,
+                                                 settings)
+        app.state.public_adapter = Esse3Adapter(transport, None, None, direct_transport)
         app.state.upstream_transport = transport
 
         def do_login(username: str, password: str):
-            adapter = Esse3Adapter(transport, username, password)
+            adapter = Esse3Adapter(transport, username, password, direct_transport)
             profile, careers = adapter.login()
             adapter.set_career_context(careers)
             return profile, careers, adapter

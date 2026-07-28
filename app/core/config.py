@@ -56,6 +56,15 @@ class Settings:
     upstream_photo_path: str = ""
     upstream_bus_path: str = ""
     upstream_dining_path: str = ""
+    # Appelli: chiamata DIRETTA a esse3.cineca.it (bypassa il backend legacy,
+    # che espone solo la prima pagina). Confermato raggiungibile dal server
+    # del gateway il 28/07/2026 (401 atteso, nessun blocco di rete).
+    esse3_direct_base: str = "https://uniparthenope.esse3.cineca.it/e3rest/api"
+    esse3_direct_timeout_s: float = 20.0
+    appelli_page_size: int = 200
+    appelli_max_pages: int = 25       # tetto di sicurezza: 5000 appelli per AD bastano
+    appelli_workers: int = 5          # AD in parallelo di default nella /exam-sessions batch
+    appelli_max_workers: int = 20     # limite duro, per non martellare esse3
     # Sessioni
     access_ttl_s: int = 900          # 15 minuti
     refresh_ttl_s: int = 2_592_000   # 30 giorni, rotante
@@ -77,6 +86,13 @@ def load_settings() -> Settings:
         upstream_photo_path=os.environ.get("UPSTREAM_PHOTO_PATH", ""),
         upstream_bus_path=os.environ.get("UPSTREAM_BUS_PATH", ""),
         upstream_dining_path=os.environ.get("UPSTREAM_DINING_PATH", ""),
+        esse3_direct_base=os.environ.get(
+            "ESSE3_DIRECT_BASE", "https://uniparthenope.esse3.cineca.it/e3rest/api"),
+        esse3_direct_timeout_s=_float_env("ESSE3_DIRECT_TIMEOUT_S", 20.0),
+        appelli_page_size=_int_env("APPELLI_PAGE_SIZE", 200),
+        appelli_max_pages=_int_env("APPELLI_MAX_PAGES", 25),
+        appelli_workers=_int_env("APPELLI_WORKERS", 5),
+        appelli_max_workers=_int_env("APPELLI_MAX_WORKERS", 20),
         access_ttl_s=_int_env("ACCESS_TTL_S", 900),
         refresh_ttl_s=_int_env("REFRESH_TTL_S", 2_592_000),
         login_rate_per_min=_int_env("LOGIN_RATE_PER_MIN", 5),

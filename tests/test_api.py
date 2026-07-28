@@ -74,6 +74,34 @@ class ApiTests(unittest.TestCase):
         self.assertFalse(items[503]["inPlan"])     # fuori piano
         self.assertEqual(items[501]["date"], "2026-09-15")  # data normalizzata
 
+    def test_exam_sessions_batch_adIds_aggregates_and_reports_errors(self):
+        """101 e 102 esistono nei dati mock, 999999 no: deve tornare i primi
+        due normalmente e il terzo dentro 'errors', senza far fallire la
+        richiesta intera (un adId rotto non deve rompere gli altri)."""
+        r = self.client.get("/v3/exam-sessions?adIds=101,102,999999",
+                            headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        ad_ids_tornati = {i["ad_id"] for i in body["items"]}
+        self.assertEqual(ad_ids_tornati, {101, 102})
+        self.assertIn("999999", body["errors"])
+
+    def test_exam_sessions_adIds_client_side_parallelism_not_needed(self):
+        """Stesso principio del batch v3 legacy analizzato col prof: il
+        client passa TUTTI gli adId in una chiamata, il parallelismo lo fa
+        il server (parametro 'workers'), l'app non deve spezzare la
+        richiesta in N chiamate parallele proprie."""
+        r = self.client.get("/v3/exam-sessions?adIds=101,102&workers=2",
+                            headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["count"], 2)
+
+    def test_exam_sessions_adIds_malformed_is_400_not_500(self):
+        r = self.client.get("/v3/exam-sessions?adIds=,,,abc",
+                            headers=self.auth)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "validation_failed")
+
     # -- prenotazione (PRB-12) ------------------------------------------------
     def test_booking_happy_path_and_conflict(self):
         r = self.client.post("/v3/exam-sessions/501/reservations",
