@@ -1,7 +1,7 @@
-# Reverse proxy per il gateway v3, da consegnare a chi ha accesso root
-# sul server (montella@192.167.9.47) per l'esposizione pubblica.
+# Reverse proxy per il gateway v3 (ambiente di test), da consegnare a chi
+# ha accesso root sul server (montella@192.167.9.47) per l'esposizione.
 #
-# Perché un sottodominio dedicato (api-v3.uniparthenope.it) e non
+# Perché un sottodominio dedicato (api-dev.uniparthenope.it) e non
 # api.uniparthenope.it: il gateway rispecchia anche i vecchi indirizzi
 # legacy (stesso path, es. /UniparthenopeApp/v1/login) per compatibilità.
 # Se esposto sullo STESSO dominio del sistema v1 reale, i due andrebbero
@@ -14,7 +14,7 @@
 
 server {
     listen 80;
-    server_name api-v3.uniparthenope.it;
+    server_name api-dev.uniparthenope.it;
 
     # redirect a HTTPS una volta ottenuto il certificato (vedi sotto)
     location / {
@@ -24,14 +24,14 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name api-v3.uniparthenope.it;
+    server_name api-dev.uniparthenope.it;
 
     # Certificato da richiedere per il nuovo sottodominio, es. con certbot:
-    #   certbot certonly --nginx -d api-v3.uniparthenope.it
+    #   certbot certonly --nginx -d api-dev.uniparthenope.it
     # (non riusare il certificato di api.uniparthenope.it: è emesso solo
     # per quel nome, un browser/client lo rifiuterebbe su questo host)
-    ssl_certificate     /etc/letsencrypt/live/api-v3.uniparthenope.it/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api-v3.uniparthenope.it/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/api-dev.uniparthenope.it/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api-dev.uniparthenope.it/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8080;

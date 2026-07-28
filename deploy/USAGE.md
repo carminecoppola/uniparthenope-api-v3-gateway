@@ -4,8 +4,8 @@
 
 - **Ora** (in sviluppo, prima della pubblicazione): tramite tunnel —
   `http://127.0.0.1:8080` sul Mac di chi ha il tunnel SSH/Cloudflare aperto.
-- **Dopo la pubblicazione** (quando Antonello completa i suoi passi):
-  `https://api-v3.uniparthenope.it`
+- **Dopo la pubblicazione** (quando l'admin completa i suoi passi):
+  `https://api-dev.uniparthenope.it`
 
 Il codice dell'app dovrebbe leggere questo indirizzo da una variabile di
 configurazione, non hardcoded, così il giorno del passaggio si cambia un
