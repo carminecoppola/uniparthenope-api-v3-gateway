@@ -30,10 +30,20 @@ class ExamSession:
     ad_id: int
     ad_des: str = ""
     aa_off_id: int | None = None
-    date: str = ""            # ISO-8601 (YYYY-MM-DD)
+    date: str = ""            # ISO-8601 (YYYY-MM-DD), data dell'esame
     status: str = ""          # stato upstream grezzo
     bookable: bool = False    # regola risolta LATO SERVER, non nella UI
     reason: str = ""          # perché non prenotabile, quando bookable=False
+    # Campi mostrati dai client legacy (v1 formatta_appello): il mapper li
+    # scartava, ma sono già nel payload grezzo esse3 — nessuna chiamata in
+    # più per recuperarli, solo esposti correttamente.
+    teacher: str = ""              # cognome docente presidente commissione
+    teacher_full: str = ""         # nome e cognome completi
+    enrolled_count: int | None = None  # numIscritti
+    note: str = ""
+    description: str = ""          # desApp
+    registration_start: str = ""   # ISO-8601, inizio finestra iscrizione
+    registration_end: str = ""     # ISO-8601, fine finestra iscrizione
 
 
 @dataclass(frozen=True)

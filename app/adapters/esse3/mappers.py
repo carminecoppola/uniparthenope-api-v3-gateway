@@ -95,6 +95,10 @@ def map_exam_sessions(raw):
         status = str(_first(item, "stato", "status", "statoAperturaApp",
                             default="")).strip().upper()
         bookable = status in BOOKABLE_STATUSES
+        cognome = str(_first(item, "presidenteCognome", "docente", default="")).strip()
+        nome = str(_first(item, "presidenteNome", default="")).strip()
+        teacher = cognome.capitalize() if cognome else ""
+        teacher_full = f"{teacher} {nome.capitalize()}".strip() if nome else teacher
         sessions.append(ExamSession(
             app_id=app_id,
             ad_id=ad_id,
@@ -105,6 +109,15 @@ def map_exam_sessions(raw):
             bookable=bookable,
             reason="" if bookable else
                    f"Stato appello '{status or 'sconosciuto'}' non prenotabile",
+            teacher=teacher,
+            teacher_full=teacher_full,
+            enrolled_count=_int_or_none(_first(item, "numIscritti", "enrolledCount")),
+            note=str(_first(item, "note", default="")),
+            description=str(_first(item, "desApp", "descrizione", default="")),
+            registration_start=normalize_date(
+                _first(item, "dataInizioIscr", "registrationStart")),
+            registration_end=normalize_date(
+                _first(item, "dataFineIscr", "registrationEnd")),
         ))
     return sessions, skipped
 

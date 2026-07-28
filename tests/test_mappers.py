@@ -42,6 +42,35 @@ class MapperTests(unittest.TestCase):
         bookable = {s.app_id: s.bookable for s in sessions}
         self.assertEqual(bookable, {1: True, 2: True, 3: False, 4: False, 5: False})
 
+    def test_exam_sessions_preserve_teacher_and_extra_fields(self):
+        """I client legacy mostrano docente/iscritti/note/finestra iscrizione:
+        campi già presenti nel payload grezzo esse3, il mapper non deve
+        più scartarli (a differenza di prima)."""
+        sessions, _ = mappers.map_exam_sessions([{
+            "appId": 1, "adId": 1, "stato": "P",
+            "presidenteCognome": "ROSSI", "presidenteNome": "MARIO",
+            "numIscritti": 42, "note": "Portare libretto",
+            "desApp": "Appello scritto", "dataInizioIscr": "01/09/2026",
+            "dataFineIscr": "10/09/2026",
+        }])
+        s = sessions[0]
+        self.assertEqual(s.teacher, "Rossi")
+        self.assertEqual(s.teacher_full, "Rossi Mario")
+        self.assertEqual(s.enrolled_count, 42)
+        self.assertEqual(s.note, "Portare libretto")
+        self.assertEqual(s.description, "Appello scritto")
+        self.assertEqual(s.registration_start, "2026-09-01")
+        self.assertEqual(s.registration_end, "2026-09-10")
+
+    def test_exam_sessions_extra_fields_default_empty_when_missing(self):
+        """Riga minima (com'era prima): niente eccezioni, solo default vuoti."""
+        sessions, skipped = mappers.map_exam_sessions([{"appId": 1, "adId": 1}])
+        self.assertEqual(skipped, 0)
+        s = sessions[0]
+        self.assertEqual(s.teacher, "")
+        self.assertEqual(s.teacher_full, "")
+        self.assertIsNone(s.enrolled_count)
+
     def test_reservations_require_all_ids(self):
         rows = [
             {"reservationId": "r1", "appId": 1, "adId": 2, "adsceId": 3},
