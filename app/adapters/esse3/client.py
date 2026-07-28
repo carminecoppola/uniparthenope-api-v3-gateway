@@ -148,18 +148,21 @@ class Esse3DirectTransport:
                    auth) -> httpx.Response:
         """Una pagina di appelli.
 
-        Prova prima `start`/`limit`. Se esse3 la rifiuta (400/500) prova
+        Prova prima `start`/`limit`. Se esse3 la rifiuta (400/412/500) prova
         `page`/`rows` (convenzione paginazione alternativa, usata da altre
-        viste e3rest note): NON ANCORA VERIFICATO con credenziali reali —
-        va confermato al primo uso reale. Se anche il fallback fallisce,
-        si ritorna la risposta ORIGINALE (start/limit), più diretta da
-        diagnosticare di un doppio errore.
+        viste e3rest note). Verificato il 28/07/2026 con credenziali reali:
+        la causa più comune di rifiuto NON è il nome dei parametri ma un
+        `limit` troppo alto (esse3 accetta solo ≤100, da cui il default di
+        APPELLI_PAGE_SIZE) — 412 incluso qui per coprire lo stesso caso se
+        capitasse con un page_size diverso da quello di default. Se anche
+        il fallback fallisce, si ritorna la risposta ORIGINALE (start/limit),
+        più diretta da diagnosticare di un doppio errore.
         """
         path = CALESA_APPELLI_PATH.format(cds_id=cds_id, ad_id=ad_id)
         response = self._get(path, auth=auth,
                              params={"start": start, "limit": page_size})
 
-        if response.status_code in (400, 500):
+        if response.status_code in (400, 412, 500):
             page_number = start // page_size + 1
             fallback = self._get(path, auth=auth,
                                  params={"page": page_number, "rows": page_size})
@@ -360,83 +363,6 @@ class Esse3Adapter:
                                auth=self._auth)
         return mappers.map_plan(self._t.json_of(resp, EXAMS_PATH), career_id=career_id)
 
-    def probe_appelli(self, career: Career, ad_id: int) -> dict:
-        """DIAGNOSTICO TEMPORANEO (28/07/2026): la chiamata diretta a
-        esse3.cineca.it risponde 403/412 con credenziali reali per ogni
-        adId testato. Qui si confrontano più varianti della stessa
-        richiesta con quella che invece FUNZIONA (proxy legacy), stessa
-        sessione già autenticata — nessuna credenziale in più richiesta,
-        nessuna esposta nell'output. Da rimuovere una volta capita la causa.
-        """
-        if self._direct is None:
-            return {"error": "direct transport non configurato"}
-
-        cds_id = career.cds_id
-        path = CALESA_APPELLI_PATH.format(cds_id=cds_id, ad_id=ad_id)
-        risultati = {}
-
-        def registra(nome, resp=None, eccezione=None):
-            if eccezione is not None:
-                risultati[nome] = {"errore": str(eccezione)}
-                return
-            corpo = resp.text
-            risultati[nome] = {
-                "status": resp.status_code,
-                "body": corpo[:400],
-                "headers": dict(resp.headers),
-            }
-
-        # 1) come oggi: start/limit
-        try:
-            r = self._direct.client.get(path, auth=self._auth,
-                                        params={"start": 0, "limit": 200})
-            registra("direct_start_limit", r)
-        except Exception as exc:
-            registra("direct_start_limit", eccezione=exc)
-
-        # 2) nessun parametro di paginazione
-        try:
-            r = self._direct.client.get(path, auth=self._auth)
-            registra("direct_no_params", r)
-        except Exception as exc:
-            registra("direct_no_params", eccezione=exc)
-
-        # 3) page/rows invece di start/limit
-        try:
-            r = self._direct.client.get(path, auth=self._auth,
-                                        params={"page": 1, "rows": 200})
-            registra("direct_page_rows", r)
-        except Exception as exc:
-            registra("direct_page_rows", eccezione=exc)
-
-        # 4) header di profilo esplicito (visto in login_v1.py per i docenti)
-        try:
-            r = self._direct.client.get(
-                path, auth=self._auth,
-                headers={"X-Esse3-User-Profile": "STUDENTE"})
-            registra("direct_with_profile_header", r)
-        except Exception as exc:
-            registra("direct_with_profile_header", eccezione=exc)
-
-        # 5) Accept: application/json esplicito
-        try:
-            r = self._direct.client.get(
-                path, auth=self._auth,
-                headers={"Accept": "application/json"})
-            registra("direct_accept_json", r)
-        except Exception as exc:
-            registra("direct_accept_json", eccezione=exc)
-
-        # 6) confronto: stesso adId sul percorso che FUNZIONA (proxy legacy)
-        try:
-            legacy_path = CHECK_APPELLO_PATH.format(cds_id=cds_id, ad_id=ad_id)
-            r = self._t.client.get(legacy_path, auth=self._auth)
-            registra("legacy_working_proxy", r)
-        except Exception as exc:
-            registra("legacy_working_proxy", eccezione=exc)
-
-        return {"cdsId": cds_id, "adId": ad_id, "risultati": risultati}
-
     def get_exam_sessions(self, career: Career, ad_id=None):
         if ad_id is None:
             raise UpstreamNotConfigured(
@@ -466,14 +392,19 @@ class Esse3Adapter:
         paginata). Ritorna (sessioni_mappate, scartate, errori_per_ad).
 
         Un adId che fallisce non fa fallire gli altri: finisce in
-        `errori_per_ad` (adId -> messaggio) e viene semplicemente escluso
-        dai risultati, non solleva.
+        `errori_per_ad` (adId -> {status, message}) e viene semplicemente
+        escluso dai risultati, non solleva. Il CODICE numerico è incluso
+        esplicitamente (non solo il messaggio testuale di esse3, che spesso
+        non contiene il numero): un 403 "Security failed" su un adId che
+        risulta comunque nel libretto è quasi sempre "nessun appello aperto
+        ora", non un vero errore — il chiamante deve poterlo distinguere
+        senza fare parsing di stringhe.
         """
         if self._direct is None:
             raise UpstreamNotConfigured(
                 "Client diretto esse3 non configurato per questa sessione.")
         settings = self._t.settings
-        page_size = getattr(settings, "appelli_page_size", 200) if settings else 200
+        page_size = getattr(settings, "appelli_page_size", 100) if settings else 100
         max_pages = getattr(settings, "appelli_max_pages", 25) if settings else 25
         default_workers = getattr(settings, "appelli_workers", 5) if settings else 5
         max_workers = getattr(settings, "appelli_max_workers", 20) if settings else 20
@@ -484,10 +415,11 @@ class Esse3Adapter:
 
         sessioni = []
         scartate_tot = 0
-        errori: dict[int, str] = {}
+        errori: dict[int, dict] = {}
         for ad_id, esito in grezzo.items():
             if esito["status"] != 200:
-                errori[ad_id] = esito["errMsg"] or f"status {esito['status']}"
+                errori[ad_id] = {"status": esito["status"],
+                                 "message": esito["errMsg"] or ""}
                 continue
             mappate, scartate = mappers.map_exam_sessions(esito["items"])
             sessioni.extend(mappate)

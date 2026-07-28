@@ -61,7 +61,10 @@ class Settings:
     # del gateway il 28/07/2026 (401 atteso, nessun blocco di rete).
     esse3_direct_base: str = "https://uniparthenope.esse3.cineca.it/e3rest/api"
     esse3_direct_timeout_s: float = 20.0
-    appelli_page_size: int = 200
+    # esse3 rifiuta con 412 un limit > 100 (verificato il 28/07/2026 con
+    # credenziali reali: "valore parametro limit errato: inserire un
+    # valore minore o uguale a 100").
+    appelli_page_size: int = 100
     appelli_max_pages: int = 25       # tetto di sicurezza: 5000 appelli per AD bastano
     appelli_workers: int = 5          # AD in parallelo di default nella /exam-sessions batch
     appelli_max_workers: int = 20     # limite duro, per non martellare esse3

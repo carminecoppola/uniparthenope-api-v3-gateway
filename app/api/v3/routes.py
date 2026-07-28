@@ -184,20 +184,6 @@ def exam_sessions(request: Request, adId: int | None = None,
     return result
 
 
-@router.get("/_diag/appelli-probe", tags=["diag"])
-def appelli_probe(adId: int, session: Session = Depends(get_session)):
-    """DIAGNOSTICO TEMPORANEO — da rimuovere una volta risolto il 403/412
-    di esse3.cineca.it diretto (vedi Esse3Adapter.probe_appelli).
-
-    Usa la sessione già autenticata: nessuna credenziale extra richiesta,
-    nessuna esposta nella risposta (solo status/body/header delle risposte
-    di esse3, dati accademici dell'utente stesso)."""
-    adapter = _adapter(session)
-    if not hasattr(adapter, "probe_appelli"):
-        raise ValidationFailed("Diagnostica non disponibile su questo adapter.")
-    return adapter.probe_appelli(_career(session), adId)
-
-
 @router.post("/exam-sessions/{app_id}/reservations", status_code=201, tags=["exams"])
 def book_exam(app_id: int, body: BookBody, request: Request, dryRun: bool = False,
               session: Session = Depends(get_session)):

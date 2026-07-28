@@ -76,7 +76,7 @@ class MockEsse3Adapter:
         sessions, skipped = mappers.map_exam_sessions(_RAW_SESSIONS)
         ad_ids_set = set(ad_ids)
         filtrate = [s for s in sessions if s.ad_id in ad_ids_set]
-        errori = {ad_id: "adId inesistente nei dati mock"
+        errori = {ad_id: {"status": 403, "message": "adId inesistente nei dati mock"}
                  for ad_id in ad_ids if ad_id not in {s.ad_id for s in sessions}}
         return filtrate, skipped, errori
 
