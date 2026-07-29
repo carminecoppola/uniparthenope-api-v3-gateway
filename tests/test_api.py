@@ -65,7 +65,8 @@ class ApiTests(unittest.TestCase):
 
     # -- appelli ------------------------------------------------------------
     def test_exam_sessions_have_server_side_bookable(self):
-        r = self.client.get("/v3/exam-sessions", headers=self.auth)
+        r = self.client.get("/v3/exam-sessions?adIds=101,102,999",
+                            headers=self.auth)
         self.assertEqual(r.status_code, 200)
         items = {i["app_id"]: i for i in r.json()["items"]}
         self.assertTrue(items[501]["bookable"])
@@ -73,6 +74,16 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(items[501]["inPlan"])
         self.assertFalse(items[503]["inPlan"])     # fuori piano
         self.assertEqual(items[501]["date"], "2026-09-15")  # data normalizzata
+
+    def test_exam_sessions_no_params_auto_batches_the_whole_plan(self):
+        """Senza adId/adIds: il gateway legge da solo gli adId dal piano di
+        studi (101, 102 nei dati mock) e li interroga in batch — un solo
+        giro, il client non deve più fare plan->adIds->exam-sessions a mano.
+        adId 999 ("fuori piano") NON deve comparire: non è nel libretto."""
+        r = self.client.get("/v3/exam-sessions", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        ad_ids_tornati = {i["ad_id"] for i in r.json()["items"]}
+        self.assertEqual(ad_ids_tornati, {101, 102})
 
     def test_exam_sessions_batch_adIds_aggregates_and_reports_errors(self):
         """101 e 102 esistono nei dati mock, 999999 no: deve tornare i primi

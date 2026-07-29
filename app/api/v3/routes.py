@@ -148,13 +148,19 @@ def exam_sessions(request: Request, adId: int | None = None,
                   session: Session = Depends(get_session)):
     """Elenco appelli con `bookable` risolto LATO SERVER (mai euristiche UI).
 
+    Senza parametri: TUTTI gli appelli del piano di studi della carriera
+    attiva, in una sola chiamata — il gateway legge da solo gli `adId` dal
+    libretto e li interroga in batch, il client non deve più fare il giro
+    "prima /students/me/plan poi /exam-sessions?adIds=...".
+
     `adId` interroga un solo insegnamento (tutte le pagine, non solo la
     prima). `adIds` (comma-separated) ne interroga più di uno in parallelo
     lato server — `workers` sceglie quanti insieme (default e cap lato
     server, vedi APPELLI_WORKERS/APPELLI_MAX_WORKERS): il client NON deve
     fare il proprio parallelismo se usa `adIds`, lo fa già il gateway.
-    Un adId fallito dentro `adIds` non fa fallire gli altri: risulta in
-    `errors` invece che interrompere la risposta.
+    Un adId fallito (dentro `adIds` o nel caso senza parametri) non fa
+    fallire gli altri: risulta in `errors` invece che interrompere la
+    risposta.
     """
     svc = _booking(request, session)
     career = _career(session)
@@ -167,8 +173,16 @@ def exam_sessions(request: Request, adId: int | None = None,
             raise ValidationFailed("adIds non contiene alcun identificatore valido.")
         sessions, errori_ad = svc.exam_sessions_batch(career, ad_id_list, workers=workers)
         errors = {str(k): v for k, v in errori_ad.items()}
-    else:
+    elif adId is not None:
         sessions = svc.exam_sessions(career, ad_id=adId)
+    else:
+        # Nessun parametro: batch automatico su tutti gli adId del piano.
+        if not plan_ids:
+            sessions = []
+        else:
+            sessions, errori_ad = svc.exam_sessions_batch(
+                career, sorted(plan_ids), workers=workers)
+            errors = {str(k): v for k, v in errori_ad.items()}
 
     items = []
     for s in sessions:
