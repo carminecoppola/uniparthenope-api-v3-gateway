@@ -11,7 +11,8 @@ from __future__ import annotations
 import base64
 import itertools
 
-from ...core.errors import Conflict, Forbidden, InvalidCredentials, NotFound
+from ...core.errors import (Conflict, Forbidden, InvalidCredentials, NotFound,
+                            ValidationFailed)
 from ...domain.models import Career
 from . import mappers
 
@@ -41,6 +42,105 @@ _RAW_SESSIONS = [
 ]
 
 
+class MockWebCalendarAdapter:
+    """Simula il Calendario Esami docente (appelli) senza rete.
+
+    Stessa interfaccia di `WebCalendarAdapter` (list/new_form/edit_form/save),
+    cosi' l'app puo' essere sviluppata e provata end-to-end in modalità mock
+    PRIMA di un test con credenziali docente reali, senza toccare mai ESSE3.
+    """
+
+    def __init__(self) -> None:
+        from .web_calendar import EDITABLE, READ_ONLY, REQUIRED
+        self._editable, self._read_only, self._required = EDITABLE, READ_ONLY, REQUIRED
+        self._items: dict[int, dict] = {
+            9001: {"cdsId": 10256, "adId": 2649, "aaId": 2025, "tipoProva": "PF",
+                   "dataAppello": "2026-09-10", "ora": "09", "minuti": "30",
+                   "iscrizioniDal": "2026-08-01", "iscrizioniAl": "2026-09-09",
+                   "descrizione": "Appello di Settembre (prova)", "note": "",
+                   "edificioId": "", "aulaId": "", "postiMax": "", "tipoEsame": "S",
+                   "riservatoDocente": False, "prenotabileDa": "", "sessione": ""},
+        }
+        self._ids = itertools.count(9002)
+
+    def teachings(self):
+        visti = {(d["cdsId"], d["adId"], d["aaId"]) for d in self._items.values()}
+        items = [{"adId": ad_id, "cdsId": cds_id, "aaId": aa_id,
+                  "adDes": "Insegnamento di prova [mock]", "adCode": "MOCK",
+                  "cdsDes": "Corso di prova [mock]"}
+                 for cds_id, ad_id, aa_id in sorted(visti)]
+        return {"items": items, "count": len(items)}
+
+    def _vuoto(self, cds_id, ad_id, aa_id, tipo_prova):
+        campi = {nome: {"value": "" if nome != "riservatoDocente" else False,
+                       "type": "checkbox" if nome == "riservatoDocente" else "text",
+                       "editable": nome in self._editable} for nome in self._editable}
+        campi["verbalizzazione"] = {"value": "FWP", "type": "text", "editable": False,
+                                    "readOnlyReason": "Valore imposto dall'ateneo."}
+        campi["appLogId"] = {"value": "", "type": "hidden", "editable": False}
+        return {"modalita": "nuovo", "campi": campi,
+                "hidden": {"NEW_APP": "1", "CDS_ID": str(cds_id), "AD_ID": str(ad_id),
+                          "AA_ID": str(aa_id), "TIPO_PROVA": tipo_prova}}
+
+    def list(self, cds_id, ad_id, aa_id, visibility="all"):
+        items = []
+        for app_id, dati in self._items.items():
+            if (dati["cdsId"], dati["adId"], dati["aaId"]) != (cds_id, ad_id, aa_id):
+                continue
+            items.append({
+                "appId": app_id, "tipoProva": dati["tipoProva"],
+                "descrizione": dati["descrizione"], "data": dati["dataAppello"],
+                "ora": f"{dati['ora']}:{dati['minuti']}", "luogo": None, "badges": [],
+                "iscrizioni": {"stato": {"code": "in_corso", "label": None}, "iscritti": 0},
+                "esiti": {"stato": {"code": "non_previsto", "label": None}, "inseriti": 0},
+                "verbali": {"stato": {"code": "non_previsto", "label": None}, "caricati": 0},
+                "azioni": [{"kind": "modifica", "label": None}],
+                "permessi": {"modificabile": True, "cancellabile": True, "haIscritti": False},
+                "contesto": {"cdsId": cds_id, "adId": ad_id, "aaId": aa_id},
+            })
+        return {"contesto": {"insegnamento": "Insegnamento di prova [mock]",
+                             "corsoDiStudio": "Corso di prova [mock]"},
+                "items": items, "count": len(items)}
+
+    def new_form(self, cds_id, ad_id, aa_id, exam_type="PF"):
+        return self._vuoto(cds_id, ad_id, aa_id, exam_type)
+
+    def edit_form(self, app_id, cds_id, ad_id, aa_id, exam_type="PF"):
+        dati = self._items.get(int(app_id))
+        if dati is None:
+            raise NotFound("Appello non trovato (mock).")
+        campi = self._vuoto(cds_id, ad_id, aa_id, exam_type)["campi"]
+        for nome, valore in dati.items():
+            if nome in campi:
+                campi[nome]["value"] = valore
+        return {"modalita": "modifica", "campi": campi,
+                "hidden": {"NEW_APP": "0", "CDS_ID": str(cds_id), "AD_ID": str(ad_id),
+                          "AA_ID": str(aa_id), "APP_ID": str(app_id),
+                          "TIPO_PROVA": exam_type}}
+
+    def save(self, form, patch, submit="save", notifications=None):
+        sconosciuti = set(patch) - self._editable
+        if sconosciuti:
+            raise ValidationFailed(
+                "Campi non modificabili o sconosciuti: " + ", ".join(sorted(sconosciuti)))
+        attuali = {nome: campo.get("value") for nome, campo in form["campi"].items()}
+        modello = {**attuali, **patch}
+        mancanti = [nome for nome in self._required if modello.get(nome) in (None, "")]
+        if mancanti:
+            raise ValidationFailed("Campi obbligatori mancanti: " + ", ".join(sorted(mancanti)))
+
+        hidden = form["hidden"]
+        if form["modalita"] == "nuovo":
+            app_id = next(self._ids)
+        else:
+            app_id = int(hidden["APP_ID"])
+        self._items[app_id] = {
+            "cdsId": int(hidden["CDS_ID"]), "adId": int(hidden["AD_ID"]),
+            "aaId": int(hidden["AA_ID"]), "tipoProva": hidden.get("TIPO_PROVA", "PF"),
+            **{k: v for k, v in modello.items() if k in self._editable}}
+        return {"dryRun": False, "applied": True, "appello": modello, "appId": app_id}
+
+
 class MockEsse3Adapter:
     name = "mock"
 
@@ -59,6 +159,11 @@ class MockEsse3Adapter:
                    "lastName": "Di Prova",
                    "email": f"{username}@studenti.uniparthenope.it"}
         return profile, [career]
+
+    def open_web_calendar(self, settings):
+        """Stesso nome di metodo dell'adapter reale: nessuna ramificazione
+        nelle rotte. In mock non serve ESSE3_WEB_BASE, ne' rete."""
+        return MockWebCalendarAdapter()
 
     # -- carriera ----------------------------------------------------------
     def get_plan(self, career_id: int):

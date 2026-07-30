@@ -61,6 +61,17 @@ class Settings:
     # del gateway il 28/07/2026 (401 atteso, nessun blocco di rete).
     esse3_direct_base: str = "https://uniparthenope.esse3.cineca.it/e3rest/api"
     esse3_direct_timeout_s: float = 20.0
+    # Appelli-docente (creazione/modifica): l'e3rest sopra è sola lettura,
+    # quindi qui si passa dall'area WEB di ESSE3 (stesse credenziali, cookie
+    # JSESSIONID). Vuoto di default: finché non è confermato/configurato le
+    # rotte /professors/me/exam-sessions rispondono 503, mai un percorso
+    # inventato (stessa regola di upstream_photo_path ecc.).
+    esse3_web_base: str = ""
+    esse3_web_timeout_s: float = 25.0
+    # True finché non abbiamo un HAR di salvataggio riuscito: valida e
+    # prepara il payload ma non lo invia a ESSE3 (niente scritture accidentali
+    # su dati d'esame reali durante l'integrazione).
+    esse3_web_dry_run_writes: bool = True
     # esse3 rifiuta con 412 un limit > 100 (verificato il 28/07/2026 con
     # credenziali reali: "valore parametro limit errato: inserire un
     # valore minore o uguale a 100").
@@ -92,6 +103,9 @@ def load_settings() -> Settings:
         esse3_direct_base=os.environ.get(
             "ESSE3_DIRECT_BASE", "https://uniparthenope.esse3.cineca.it/e3rest/api"),
         esse3_direct_timeout_s=_float_env("ESSE3_DIRECT_TIMEOUT_S", 20.0),
+        esse3_web_base=os.environ.get("ESSE3_WEB_BASE", ""),
+        esse3_web_timeout_s=_float_env("ESSE3_WEB_TIMEOUT_S", 25.0),
+        esse3_web_dry_run_writes=_bool_env("ESSE3_WEB_DRY_RUN_WRITES", True),
         appelli_page_size=_int_env("APPELLI_PAGE_SIZE", 200),
         appelli_max_pages=_int_env("APPELLI_MAX_PAGES", 25),
         appelli_workers=_int_env("APPELLI_WORKERS", 5),
