@@ -316,6 +316,7 @@ class Esse3Adapter:
             "email": user.get("email") or data.get("email") or "",
             "personId": _find_first(data, "personId", "persId", "pers_id"),
             "idAb": _find_first(data, "idAb", "id_ab"),
+            "docenteId": _int_or_none(user.get("docenteId")),
         }
         careers: list[Career] = []
         for tratto in user.get("trattiCarriera", []) or []:
@@ -335,10 +336,13 @@ class Esse3Adapter:
                 cds_des=str(tratto.get("cdsDes") or det.get("cdsDes") or ""),
                 active=True,
             ))
-        if not careers:
+        if not careers and profile["docenteId"] is None:
+            # Un docente puro non ha trattiCarriera (e' un dato da studente):
+            # solo se manca ANCHE il docenteId non sappiamo interpretare la
+            # risposta, altrimenti e' un login legittimo senza carriera.
             raise UpstreamContract(
-                "Login riuscito ma nessuna carriera riconosciuta nella risposta: "
-                "verificare le chiavi di trattiCarriera/dettaglioTratto.")
+                "Login riuscito ma nessuna carriera ne' docenteId nella "
+                "risposta: verificare le chiavi di trattiCarriera/docenteId.")
         return profile, careers
 
     def web_login(self, base_url: str, timeout_s: float = 25.0) -> str:

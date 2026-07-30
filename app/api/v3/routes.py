@@ -98,9 +98,12 @@ def create_session(body: LoginBody, request: Request):
     if not allowed:
         raise RateLimited(retry, "Troppi tentativi di accesso: riprovare più tardi.")
     profile, careers, adapter = request.app.state.do_login(body.username, body.password)
-    active = next((c for c in careers if c.active), careers[0])
+    # Un docente puro non ha carriera studente: career_id resta None, le
+    # rotte studente falliranno con un 400 chiaro via _career() invece di
+    # un IndexError qui.
+    active = next((c for c in careers if c.active), careers[0] if careers else None)
     tokens = request.app.state.sessions.create(
-        body.username, careers, active.career_id,
+        body.username, careers, active.career_id if active else None,
         data={"adapter": adapter, "profile": profile})
     return {**tokens, "profile": profile, "careers": [asdict(c) for c in careers]}
 

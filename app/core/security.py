@@ -25,7 +25,10 @@ class Session:
     session_id: str
     username: str
     careers: list
-    career_id: int
+    # None per gli account senza carriera studente (docenti puri): le rotte
+    # studente useranno _career() e falliranno con un errore di dominio
+    # chiaro invece di un IndexError in fase di creazione della sessione.
+    career_id: int | None
     data: dict = field(default_factory=dict)
     revoked: bool = False
 
@@ -51,7 +54,7 @@ class SessionStore:
         return {"tokenType": "Bearer", "accessToken": access,
                 "refreshToken": refresh, "expiresIn": self._access_ttl}
 
-    def create(self, username: str, careers: list, career_id: int,
+    def create(self, username: str, careers: list, career_id: int | None,
                data: dict | None = None) -> dict:
         sid = secrets.token_urlsafe(16)
         self._sessions[sid] = Session(sid, username, list(careers), career_id,
