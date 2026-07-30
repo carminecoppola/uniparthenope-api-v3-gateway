@@ -27,6 +27,7 @@ LIST_PATH = f"{BASE_PATH}/ElencoAppelliCalEsa.do"
 FORM_PATH = f"{BASE_PATH}/InserisciAggiornaAppelloCalEsa.do"
 SUBMIT_PATH = f"{BASE_PATH}/InserisciAggiornaAppelloCalEsaSubmit.do"
 ROOMS_PATH = f"{BASE_PATH}/LookupAule.do"
+DELETE_PATH = f"{BASE_PATH}/RiepilogoAppelloCalEsa.do"
 # Punto d'ingresso usato solo per innescare il login SSO (Shibboleth):
 # qualunque pagina protetta andrebbe bene, questa è quella verificata.
 LOGIN_ENTRY_PATH = "/auth/docente/AreaDocente.do"
@@ -537,6 +538,47 @@ class WebCalendarAdapter:
         if form_data["_action"]:
             form_data["_action"] = _absolute(response, form_data["_action"])
         return form_data
+
+    def delete(self, app_id, cds_id, ad_id, aa_id):
+        """Cancella un appello.
+
+        Stesso motivo di new_form/edit_form: ESSE3 rifiuta un accesso
+        diretto, va raggiunto passando dalla Lista Appelli. Il link
+        "Cancella" di ogni riga POSTa a RiepilogoAppelloCalEsa.do con
+        TYPE=DEL, che mostra una pagina di riepilogo con un modulo di
+        conferma finale — sottomesso qui con lo stesso approccio generico
+        usato per le pagine "ponte" del login SSO.
+        """
+        self.list(cds_id, ad_id, aa_id)  # assicura il contesto giusto
+        soup = BeautifulSoup(self._list_page.text, "html.parser")
+        target_action = None
+        for form in soup.find_all("form"):
+            action = form.get("action") or ""
+            if DELETE_PATH.split("/")[-1] not in action or "TYPE=DEL" not in action:
+                continue
+            if f"APP_ID={app_id}" in action:
+                target_action = action
+                break
+        if target_action is None:
+            raise UpstreamContract(
+                f"Appello {app_id} non trovato o non cancellabile nella Lista Appelli.")
+
+        riepilogo = self._request("POST", _absolute(self._list_page, target_action))
+        if self.dry_run:
+            return {"dryRun": True, "applied": False,
+                    "warning": "Riepilogo di cancellazione raggiunto ma non confermato (dry-run)."}
+
+        found = _parse_form(riepilogo.text, lambda f: bool(f))
+        if found is None:
+            raise UpstreamContract("Pagina di conferma cancellazione non riconosciuta.")
+        action, fields = found
+        response = self._request("POST", _absolute(riepilogo, action),
+                                 content=urlencode(fields),
+                                 headers={"Content-Type": "application/x-www-form-urlencoded"})
+        text = BeautifulSoup(response.text, "html.parser").get_text(" ", strip=True)
+        if re.search(r"\berror[ei]?\b|operazione non riuscita", text, re.I):
+            raise Conflict("ESSE3 ha rifiutato la cancellazione.")
+        return {"dryRun": False, "applied": True}
 
     def rooms(self, building_id):
         response = self._request("GET", ROOMS_PATH, params={"edificioId": building_id})

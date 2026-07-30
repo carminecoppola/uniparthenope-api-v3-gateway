@@ -140,6 +140,12 @@ class MockWebCalendarAdapter:
             **{k: v for k, v in modello.items() if k in self._editable}}
         return {"dryRun": False, "applied": True, "appello": modello, "appId": app_id}
 
+    def delete(self, app_id, cds_id, ad_id, aa_id):
+        if int(app_id) not in self._items:
+            raise NotFound("Appello non trovato (mock).")
+        del self._items[int(app_id)]
+        return {"dryRun": False, "applied": True}
+
 
 class MockEsse3Adapter:
     name = "mock"

@@ -9,7 +9,7 @@ resta nella sessione del server e non viene mai restituito al client.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 
 from ...core.errors import SessionExpired
@@ -142,3 +142,20 @@ def modifica_appello(
         return {"appId": app_id, **risultato}
 
     return _con_calendario(request, sessione, azione)
+
+
+@router.delete("/professors/me/exam-sessions/{app_id}")
+def cancella_appello(
+    app_id: int,
+    cdsId: int,
+    adId: int,
+    aaId: int,
+    request: Request,
+    sessione: Session = Depends(get_session),
+):
+    """Cancella un appello esistente."""
+    risultato = _con_calendario(request, sessione,
+                                lambda c: c.delete(app_id, cdsId, adId, aaId))
+    if risultato.get("dryRun"):
+        return risultato
+    return Response(status_code=204)
