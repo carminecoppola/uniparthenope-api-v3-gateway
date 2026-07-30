@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 try:  # dipendenza di produzione; il parser resta testabile anche offline
     import httpx
@@ -16,9 +16,9 @@ except ImportError:
     httpx = None
 from bs4 import BeautifulSoup
 
-from ...core.errors import (Conflict, SessionExpired, UpstreamContract,
-                            UpstreamTimeout, UpstreamUnavailable,
-                            ValidationFailed)
+from ...core.errors import (Conflict, InvalidCredentials, SessionExpired,
+                            UpstreamContract, UpstreamTimeout,
+                            UpstreamUnavailable, ValidationFailed)
 
 # Indirizzi delle pagine usate per leggere e salvare i dati.
 BASE_PATH = "/auth/docente/CalendarioEsami"
@@ -27,6 +27,141 @@ LIST_PATH = f"{BASE_PATH}/ElencoAppelliCalEsa.do"
 FORM_PATH = f"{BASE_PATH}/InserisciAggiornaAppelloCalEsa.do"
 SUBMIT_PATH = f"{BASE_PATH}/InserisciAggiornaAppelloCalEsaSubmit.do"
 ROOMS_PATH = f"{BASE_PATH}/LookupAule.do"
+# Punto d'ingresso usato solo per innescare il login SSO (Shibboleth):
+# qualunque pagina protetta andrebbe bene, questa è quella verificata.
+LOGIN_ENTRY_PATH = "/auth/docente/AreaDocente.do"
+
+
+# ----------------------------------------------------------------- login SSO
+
+
+def _parse_form(html: str, predicate) -> tuple[str, list[tuple[str, str]]] | None:
+    """Trova il primo <form> che soddisfa predicate e ne estrae action e campi.
+
+    I campi sono una lista di coppie (nome, valore), non un dict: alcuni
+    moduli Shibboleth ripetono lo stesso nome più volte (es. un
+    `_shib_idp_consentIds` per ogni attributo da rilasciare) e un dict li
+    collasserebbe in uno solo, invalidando il consenso. Le checkbox non
+    spuntate e i radio non selezionati non vengono inclusi, esattamente come
+    farebbe un browser che sottomette il modulo così com'è.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for form in soup.find_all("form"):
+        fields: list[tuple[str, str]] = []
+        for node in form.find_all(["input", "button"]):
+            name = node.get("name")
+            if not name:
+                continue
+            kind = (node.get("type") or "text").lower()
+            if kind in ("checkbox", "radio") and not node.has_attr("checked"):
+                continue
+            # Un browser vero sottomette solo il pulsante su cui si clicca:
+            # qui si sceglie sempre "procedi/accetta", mai varianti come
+            # "_eventId_AttributeReleaseRejected" (altrimenti Shibboleth
+            # riceve entrambi gli _eventId_* insieme e rifiuta il modulo).
+            if kind == "submit" and name.startswith("_eventId_") and name != "_eventId_proceed":
+                continue
+            fields.append((name, node.get("value", "")))
+        if predicate(fields):
+            return form.get("action") or "", fields
+    return None
+
+
+def _has_field(fields: list[tuple[str, str]], name: str) -> bool:
+    return any(n == name for n, _ in fields)
+
+
+def _set_field(fields: list[tuple[str, str]], name: str, value: str) -> list[tuple[str, str]]:
+    return [(n, v) for n, v in fields if n != name] + [(name, value)]
+
+
+def _absolute(response, action: str) -> str:
+    """Risolve un URL relativo (action di un form, href di un link).
+
+    Le pagine di ESSE3 dichiarano `<base href=".../">`: gli URL relativi
+    vanno risolti contro quello (la radice del sito), non contro il path
+    della pagina corrente, altrimenti si finisce su percorsi annidati
+    inesistenti (es. .../auth/docente/auth/UserProfileSubmit.do invece di
+    .../auth/UserProfileSubmit.do). Le pagine dell'IdP non hanno un <base>:
+    lì si risolve come sempre contro l'URL della risposta corrente.
+    """
+    if not action:
+        return str(response.url)
+    match = re.search(r'<base\s+href=["\']([^"\']+)["\']', response.text, re.I)
+    root = match.group(1) if match else str(response.url)
+    return str(httpx.URL(root).join(action))
+
+
+def _post_form(client, url: str, fields: list[tuple[str, str]]):
+    # httpx non incoraggia chiavi ripetute con un semplice dict; qui serve
+    # (vedi `_shib_idp_consentIds`), quindi si codifica a mano preservandole.
+    body = urlencode(fields, doseq=False)
+    return client.post(url, content=body,
+                       headers={"Content-Type": "application/x-www-form-urlencoded"})
+
+
+def perform_shibboleth_login(client, base_url: str, username: str, password: str,
+                             max_steps: int = 8) -> None:
+    """Esegue il login SSO (Shibboleth) e sceglie il profilo Docente.
+
+    L'area web di ESSE3 non accetta più Basic Auth diretta su Logon.do:
+    l'ateneo protegge l'accesso con SSO federato (verificato il 30/07/2026).
+    Il flusso reale, tutto lato IdP prima di tornare sul dominio ESSE3:
+    una o più pagine "ponte" auto-inviate da JavaScript nel browser (probing
+    del supporto al localStorage, poi eventuale consenso agli attributi, poi
+    la risposta SAML da ripostare al Service Provider) e in mezzo il vero
+    modulo di login (username/password + csrf_token). Qui si va avanti
+    sottomettendo ogni modulo incontrato così com'è finché non si atterra
+    di nuovo sul dominio di ESSE3 — è la stessa cosa che farebbe il
+    JavaScript del browser, solo esplicita. Infine, per gli account con più
+    profili (es. un docente con anche una vecchia carriera studente), sceglie
+    esplicitamente "Docente".
+
+    Il cookie jar del client (passato già autenticato dal chiamante) viene
+    popolato con tutte le sessioni valide (SP Shibboleth e app server): non
+    serve più gestire un JSESSIONID a mano.
+    """
+    sp_host = httpx.URL(base_url).host
+    response = client.get(base_url.rstrip("/") + LOGIN_ENTRY_PATH)
+    credentials_sent = False
+
+    for _ in range(max_steps):
+        if response.url.host == sp_host:
+            break
+        found = _parse_form(response.text, lambda f: _has_field(f, "j_username"))
+        if found is not None:
+            if credentials_sent:
+                raise InvalidCredentials("Codice fiscale o password non validi (login SSO).")
+            action, fields = found
+            fields = _set_field(fields, "j_username", username)
+            fields = _set_field(fields, "j_password", password)
+            response = _post_form(client, _absolute(response, action), fields)
+            credentials_sent = True
+            continue
+        # Pagina "ponte" (probing localStorage, consenso attributi, risposta
+        # SAML auto-inviata): si sottomette così com'è, come farebbe il JS.
+        found = _parse_form(response.text, lambda f: bool(f))
+        if found is None:
+            raise UpstreamContract("Login SSO: pagina intermedia non riconosciuta.")
+        action, fields = found
+        response = _post_form(client, _absolute(response, action), fields)
+    else:
+        raise UpstreamContract("Login SSO: troppi passaggi, flusso non riconosciuto.")
+
+    if not credentials_sent:
+        raise UpstreamContract("Login SSO: modulo di accesso non incontrato.")
+
+    # Account con più profili (es. docente con anche una vecchia carriera
+    # studente): sceglie esplicitamente "Docente", altrimenti si resta sulla
+    # pagina di scelta invece che nell'area riservata.
+    soup = BeautifulSoup(response.text, "html.parser")
+    docente_link = next(
+        (a for a in soup.find_all("a", href=True)
+         if "UserProfileSubmit.do" in a["href"]
+         and "docente" in a.get_text(" ", strip=True).lower()),
+        None)
+    if docente_link is not None:
+        client.get(_absolute(response, docente_link["href"]))
 
 APP = "/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/"
 LOG = "/WS/DataSet[@LocalEntityName='APP_LOG_DATI_WEB']/Row[@Num='1']/"
@@ -222,8 +357,10 @@ def parse_exam_form(html: str) -> dict:
         node = nodes[0]
         if name not in REVERSE_FIELDS and (node.get("type") or "").lower() == "hidden":
             hidden[name] = node.get("value", "")
+    form_tag = soup.find("form")
     return {"modalita": "nuovo" if hidden.get("NEW_APP") == "1" else "modifica",
-            "campi": fields, "hidden": hidden}
+            "campi": fields, "hidden": hidden,
+            "_action": form_tag.get("action") if form_tag else None}
 
 
 # Estrae i valori attuali da un modulo gia analizzato.
@@ -278,59 +415,128 @@ def build_payload(model: dict, hidden: dict, submit: str = "save", notifications
 
 # Esegue le richieste HTTP e usa le funzioni di lettura del modulo.
 class WebCalendarAdapter:
-    def __init__(self, base_url: str, jsessionid: str, timeout_s: float = 25.0,
-                 dry_run: bool = True, client: httpx.Client | None = None):
-        if not re.fullmatch(r"[A-Fa-f0-9]{32}(?:\.[A-Za-z0-9_-]{1,120})?", jsessionid):
-            raise ValidationFailed("JSESSIONID ESSE3 non plausibile.")
-        self.base_url, self.jsessionid, self.dry_run = base_url.rstrip("/"), jsessionid, dry_run
-        if client is None and httpx is None:
-            raise RuntimeError("Installare le dipendenze da requirements.txt (httpx).")
-        self.client = client or httpx.Client(base_url=self.base_url, timeout=timeout_s,
-            follow_redirects=False, headers={"User-Agent": "uniparthenope-v3-gateway/3.1",
-                                            "Cookie": f"JSESSIONID={jsessionid}"})
+    def __init__(self, client: httpx.Client, dry_run: bool = True):
+        # `client` arriva già autenticato (perform_shibboleth_login):
+        # il suo cookie jar porta sia la sessione SP (Shibboleth) sia
+        # quella dell'app server (JSESSIONID), niente da gestire a mano.
+        self.client, self.dry_run = client, dry_run
+        self._list_page = None  # ultima risposta di "Lista Appelli" caricata
 
-    def _url(self, path):
-        stem, sep, query = path.partition("?")
-        return f"{stem};jsessionid={self.jsessionid}{sep}{query}"
-
-    def _request(self, method, path, **kwargs):
-        try: response = self.client.request(method, self._url(path), **kwargs)
+    def _request(self, method, url, **kwargs):
+        try: response = self.client.request(method, url, **kwargs)
         except httpx.TimeoutException as exc: raise UpstreamTimeout("Timeout verso calendario ESSE3.") from exc
         except httpx.HTTPError as exc: raise UpstreamUnavailable("Errore di rete verso calendario ESSE3.") from exc
-        location = response.headers.get("location", "")
-        body = response.text
-        if response.status_code in (401, 403) or "Logon.do" in location or "idp.uniparthenope.it" in location or ("Logon.do" in body and "j_username" in body):
-            raise SessionExpired("Sessione web ESSE3 scaduta: acquisire un nuovo JSESSIONID.")
+        # follow_redirects=True: se la sessione e' scaduta si finisce di
+        # nuovo sul modulo di login SSO, mai su un redirect da inseguire.
+        if response.status_code in (401, 403) or "j_username" in response.text[:4000]:
+            raise SessionExpired("Sessione web ESSE3 scaduta: eseguire di nuovo il login.")
         if response.status_code >= 400: raise UpstreamUnavailable(f"ESSE3 ha risposto {response.status_code}.")
         return response
 
     def teachings(self):
-        items = parse_teaching_list(self._request("GET", TEACHINGS_PATH).text)
+        response = self._request("GET", TEACHINGS_PATH,
+                                 params={"menu_opened_cod": "menu_link-navbox_docenti_Didattica"})
+        items = parse_teaching_list(response.text)
         if not items:
             raise UpstreamContract("Lista insegnamenti non riconosciuta o vuota.")
         return {"items": items, "count": len(items)}
 
+    def _teaching_row(self, cds_id, ad_id, aa_id):
+        """Trova, nella pagina "Lista Attività", il modulo (già con la
+        sessione corretta al suo interno) che apre gli appelli
+        dell'insegnamento indicato: ESSE3 non accetta un accesso diretto a
+        ElencoAppelliCalEsa.do senza prima essere passati da qui
+        (verificato il 30/07/2026 — risposta 500 altrimenti)."""
+        response = self._request("GET", TEACHINGS_PATH,
+                                 params={"menu_opened_cod": "menu_link-navbox_docenti_Didattica"})
+        soup = BeautifulSoup(response.text, "html.parser")
+        wanted = (str(cds_id), str(ad_id), str(aa_id))
+        for row in soup.select("tr.detail_table"):
+            cells = row.find_all("td", recursive=False)
+            if len(cells) < 3:
+                continue
+            form = cells[2].find("form")
+            if form is None:
+                continue
+            hidden = {n.get("name"): n.get("value", "") for n in form.find_all("input") if n.get("name")}
+            if (hidden.get("CDS_ID"), hidden.get("AD_ID"), hidden.get("AA_ID")) == wanted:
+                fields = [(n.get("name"), n.get("value", ""))
+                         for n in form.find_all(["input", "select"]) if n.get("name")]
+                return response, _absolute(response, form.get("action")), fields
+        raise UpstreamContract(
+            "Insegnamento non trovato nella Lista Attività (cdsId/adId/aaId non corrispondenti).")
+
     def list(self, cds_id, ad_id, aa_id, visibility="all"):
-        params = {"CDS_ID": cds_id, "AD_ID": ad_id, "AA_ID": aa_id, "MIN_AA_CAL_ID": "0",
-                  "MAX_AA_CAL_ID": "", "VIS_APP": "1", "VIS_DETT": "-100", "VIEW_DETT_ESACOM": "1",
-                  "FILTRO_DATE": "0", "FILTRO_DES_EDIFICIO": "0",
-                  "MOD_VIS": {"future": "1", "all": "2", "past": "3"}.get(visibility, "2")}
-        return parse_exam_list(self._request("GET", LIST_PATH, params=params).text)
+        _, action, fields = self._teaching_row(cds_id, ad_id, aa_id)
+        response = _post_form(self.client, action, fields)
+        if response.status_code in (401, 403) or "j_username" in response.text[:4000]:
+            raise SessionExpired("Sessione web ESSE3 scaduta: eseguire di nuovo il login.")
+        if response.status_code >= 400:
+            raise UpstreamUnavailable(f"ESSE3 ha risposto {response.status_code}.")
+        self._list_page = response
+        result = parse_exam_list(response.text)
+        # Il filtro passato/futuro/tutti richiede un secondo giro (il menu
+        # "Visualizza" della pagina): più semplice e altrettanto corretto
+        # filtrare qui sulla data già disponibile in ogni appello.
+        if visibility in ("future", "past"):
+            oggi = date.today().isoformat()
+            tieni = (lambda d: d is not None and d >= oggi) if visibility == "future" \
+                else (lambda d: d is not None and d < oggi)
+            result["items"] = [i for i in result["items"] if tieni(i["data"])]
+            result["count"] = len(result["items"])
+        return result
 
     def new_form(self, cds_id, ad_id, aa_id, exam_type="PF"):
-        data = {"CDS_ID": cds_id, "AD_ID": ad_id, "AA_ID": aa_id,
-                "new_pp" if exam_type == "PP" else "new_pf": "Nuovo appello d'esame"}
-        form = parse_exam_form(self._request("POST", LIST_PATH, data=data).text)
-        if not form["campi"]: raise UpstreamContract("Form nuovo appello non riconosciuto.")
-        return form
+        self.list(cds_id, ad_id, aa_id)  # assicura il contesto "Lista Appelli" giusto
+        submit_name = "new_pp" if exam_type == "PP" else "new_pf"
+        soup = BeautifulSoup(self._list_page.text, "html.parser")
+        form = next((f for f in soup.find_all("form")
+                    if f.find(attrs={"name": submit_name})), None)
+        if form is None:
+            raise UpstreamContract("Modulo nuovo appello non trovato nella Lista Appelli.")
+        fields = []
+        for node in form.find_all(["input", "select"]):
+            name = node.get("name")
+            if not name:
+                continue
+            kind = (node.get("type") or "text").lower()
+            if kind in ("image", "submit"):
+                continue
+            if kind in ("checkbox", "radio") and not node.has_attr("checked"):
+                continue
+            fields.append((name, node.get("value", "")))
+        submit_node = form.find(attrs={"name": submit_name})
+        fields.append((submit_name, submit_node.get("value", "")))
+        response = self._request("POST", _absolute(self._list_page, form.get("action")),
+                                 content=urlencode(fields),
+                                 headers={"Content-Type": "application/x-www-form-urlencoded"})
+        form_data = parse_exam_form(response.text)
+        if not form_data["campi"]:
+            raise UpstreamContract("Form nuovo appello non riconosciuto.")
+        if form_data["_action"]:
+            form_data["_action"] = _absolute(response, form_data["_action"])
+        return form_data
 
     def edit_form(self, app_id, cds_id, ad_id, aa_id, exam_type="PF"):
-        params = {"APP_ID": app_id, "CDS_ID": cds_id, "AD_ID": ad_id, "AA_ID": aa_id,
-                  "TIPO_PROVA": exam_type, "TYPE": "APP", "CHECK_MODIFICA": "1",
-                  "VIS_PERIODI_ISCR": "1", "AULE_OBBL": "0", "MOD_SES": "1"}
-        form = parse_exam_form(self._request("GET", FORM_PATH, params=params).text)
-        if not form["campi"]: raise UpstreamContract("Form modifica appello non riconosciuto.")
-        return form
+        self.list(cds_id, ad_id, aa_id)  # assicura il contesto "Lista Appelli" giusto
+        soup = BeautifulSoup(self._list_page.text, "html.parser")
+        target_href = None
+        for a in soup.find_all("a", href=True):
+            if "InserisciAggiornaAppelloCalEsa.do" not in a["href"]:
+                continue
+            query = parse_qs(urlparse(a["href"]).query)
+            if query.get("APP_ID", [None])[0] == str(app_id):
+                target_href = a["href"]
+                break
+        if target_href is None:
+            raise UpstreamContract(f"Appello {app_id} non trovato nella Lista Appelli.")
+        response = self._request("GET", _absolute(self._list_page, target_href))
+        form_data = parse_exam_form(response.text)
+        if not form_data["campi"]:
+            raise UpstreamContract("Form modifica appello non riconosciuto.")
+        if form_data["_action"]:
+            form_data["_action"] = _absolute(response, form_data["_action"])
+        return form_data
 
     def rooms(self, building_id):
         response = self._request("GET", ROOMS_PATH, params={"edificioId": building_id})
@@ -353,7 +559,8 @@ class WebCalendarAdapter:
         if self.dry_run:
             return {"dryRun": True, "applied": False, "appello": model,
                     "warning": "Payload validato ma non inviato: manca un HAR di salvataggio riuscito."}
-        response = self._request("POST", SUBMIT_PATH, data=payload)
+        action = form.get("_action") or SUBMIT_PATH
+        response = self._request("POST", action, data=payload)
         parsed = parse_exam_form(response.text)
         text = BeautifulSoup(response.text, "html.parser").get_text(" ", strip=True)
         if re.search(r"\berror[ei]?\b|operazione non riuscita", text, re.I):

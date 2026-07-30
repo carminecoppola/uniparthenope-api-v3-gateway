@@ -16,7 +16,6 @@ queste costanti derivano dalla documentazione pubblica osservata il
 from __future__ import annotations
 
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
@@ -345,53 +344,42 @@ class Esse3Adapter:
                 "risposta: verificare le chiavi di trattiCarriera/docenteId.")
         return profile, careers
 
-    def web_login(self, base_url: str, timeout_s: float = 25.0) -> str:
-        """Login Basic verso l'area WEB di ESSE3 (Calendario Esami docente).
+    def open_web_calendar(self, settings):
+        """Adapter del Calendario Esami per la sessione corrente (appelli
+        docente). Nome del metodo comune a mock e reale: la rotta non deve
+        ramificare fra le due modalità, come già per `do_login`.
 
-        Serve SOLO per le rotte /professors/me/exam-sessions, che leggono e
-        scrivono tramite le pagine HTML (l'e3rest è sola lettura). Stesse
-        credenziali del login v1, tenute in memoria di processo (PRB-03):
-        qui vengono usate una volta per ottenere il cookie JSESSIONID, che
-        resta lato server e non è mai restituito al client.
+        L'area web di ESSE3 non accetta più Basic Auth diretta (verificato
+        il 30/07/2026: /auth/Logon.do reindirizza sempre all'IdP Shibboleth
+        dell'ateneo): serve un vero login SSO, eseguito da
+        `perform_shibboleth_login` su un client dedicato il cui cookie jar
+        diventa la sessione web di questo docente.
         """
         if self._auth is None:
             raise InvalidCredentials(
                 "Nessuna credenziale disponibile per il login web ESSE3.")
-        try:
-            response = httpx.Client(timeout=timeout_s, follow_redirects=False).get(
-                base_url.rstrip("/") + "/auth/Logon.do", auth=self._auth,
-                headers={"User-Agent": "uniparthenope-v3-gateway/3.1",
-                        "Accept": "text/html"})
-        except httpx.TimeoutException as exc:
-            raise UpstreamTimeout("Timeout verso il login web di ESSE3.") from exc
-        except httpx.HTTPError as exc:
-            raise UpstreamUnavailable("Errore di rete verso il login web di ESSE3.") from exc
-        if response.status_code in (401, 403):
-            raise InvalidCredentials(
-                "Username o password non validi per l'area web ESSE3.")
-        for cookie in response.headers.get_list("set-cookie"):
-            match = re.search(r"JSESSIONID=([^;\s]+)", cookie)
-            if match:
-                return match.group(1)
-        match = re.search(r"jsessionid=([A-Fa-f0-9.\-_]+)", response.text)
-        if match:
-            return match.group(1)
-        raise UpstreamContract(
-            "ESSE3 non ha restituito il cookie di sessione web (JSESSIONID).")
-
-    def open_web_calendar(self, settings):
-        """Adapter del Calendario Esami per la sessione corrente (appelli
-        docente). Nome del metodo comune a mock e reale: la rotta non deve
-        ramificare fra le due modalità, come già per `do_login`."""
         if not getattr(settings, "esse3_web_base", ""):
             raise UpstreamNotConfigured(
                 "ESSE3_WEB_BASE non configurato: impostare la variabile "
                 "d'ambiente per abilitare gli appelli docente.")
-        from .web_calendar import WebCalendarAdapter
-        jsessionid = self.web_login(settings.esse3_web_base, settings.esse3_web_timeout_s)
-        return WebCalendarAdapter(settings.esse3_web_base, jsessionid,
-                                  settings.esse3_web_timeout_s,
-                                  settings.esse3_web_dry_run_writes)
+        from .web_calendar import WebCalendarAdapter, perform_shibboleth_login
+        client = httpx.Client(
+            base_url=settings.esse3_web_base.rstrip("/"),
+            timeout=settings.esse3_web_timeout_s, follow_redirects=True,
+            headers={"User-Agent": "uniparthenope-v3-gateway/3.1"})
+        try:
+            perform_shibboleth_login(client, settings.esse3_web_base,
+                                     self._username, self._password)
+        except httpx.TimeoutException as exc:
+            client.close()
+            raise UpstreamTimeout("Timeout verso il login SSO di ESSE3.") from exc
+        except httpx.HTTPError as exc:
+            client.close()
+            raise UpstreamUnavailable("Errore di rete verso il login SSO di ESSE3.") from exc
+        except Exception:
+            client.close()
+            raise
+        return WebCalendarAdapter(client, settings.esse3_web_dry_run_writes)
 
     def set_career_context(self, careers) -> None:
         self._career_context = {c.career_id: c for c in careers}
