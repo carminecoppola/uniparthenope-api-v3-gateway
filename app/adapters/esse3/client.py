@@ -344,16 +344,12 @@ class Esse3Adapter:
                 "risposta: verificare le chiavi di trattiCarriera/docenteId.")
         return profile, careers
 
-    def open_web_calendar(self, settings):
-        """Adapter del Calendario Esami per la sessione corrente (appelli
-        docente). Nome del metodo comune a mock e reale: la rotta non deve
-        ramificare fra le due modalità, come già per `do_login`.
-
-        L'area web di ESSE3 non accetta più Basic Auth diretta (verificato
-        il 30/07/2026: /auth/Logon.do reindirizza sempre all'IdP Shibboleth
-        dell'ateneo): serve un vero login SSO, eseguito da
-        `perform_shibboleth_login` su un client dedicato il cui cookie jar
-        diventa la sessione web di questo docente.
+    def _open_web_client(self, settings):
+        """Login SSO (Shibboleth) su un client httpx dedicato: la stessa
+        area web di ESSE3 serve sia il Calendario Esami sia le altre
+        pagine docente (es. Laureandi assegnati). Non accetta più Basic
+        Auth diretta (verificato il 30/07/2026: /auth/Logon.do reindirizza
+        sempre all'IdP Shibboleth dell'ateneo).
         """
         if self._auth is None:
             raise InvalidCredentials(
@@ -361,8 +357,8 @@ class Esse3Adapter:
         if not getattr(settings, "esse3_web_base", ""):
             raise UpstreamNotConfigured(
                 "ESSE3_WEB_BASE non configurato: impostare la variabile "
-                "d'ambiente per abilitare gli appelli docente.")
-        from .web_calendar import WebCalendarAdapter, perform_shibboleth_login
+                "d'ambiente per abilitare le funzioni web del docente.")
+        from .web_calendar import perform_shibboleth_login
         client = httpx.Client(
             base_url=settings.esse3_web_base.rstrip("/"),
             timeout=settings.esse3_web_timeout_s, follow_redirects=True,
@@ -379,7 +375,23 @@ class Esse3Adapter:
         except Exception:
             client.close()
             raise
+        return client
+
+    def open_web_calendar(self, settings):
+        """Adapter del Calendario Esami per la sessione corrente (appelli
+        docente). Nome del metodo comune a mock e reale: la rotta non deve
+        ramificare fra le due modalità, come già per `do_login`.
+        """
+        from .web_calendar import WebCalendarAdapter
+        client = self._open_web_client(settings)
         return WebCalendarAdapter(client, settings.esse3_web_dry_run_writes)
+
+    def open_graduation(self, settings):
+        """Adapter delle tesi assegnate (Laureandi assegnati). Stesso nome
+        di metodo comune a mock e reale."""
+        from .graduation import GraduationAdapter
+        client = self._open_web_client(settings)
+        return GraduationAdapter(client)
 
     def set_career_context(self, careers) -> None:
         self._career_context = {c.career_id: c for c in careers}

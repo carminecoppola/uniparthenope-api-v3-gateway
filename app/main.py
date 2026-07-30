@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
 from .api.v3.professor_exams import router as professor_exams_router
+from .api.v3.professor_graduation import router as professor_graduation_router
 from .api.v3.routes import router
 from .api.v3.upstream import register_upstream_routes
 from .core.apikeys import ApiKeyStore
@@ -157,6 +158,8 @@ def create_app() -> FastAPI:
 
     app.include_router(router, prefix="/v3", dependencies=[Depends(api_key_scheme)])
     app.include_router(professor_exams_router, prefix="/v3",
+                       dependencies=[Depends(api_key_scheme)])
+    app.include_router(professor_graduation_router, prefix="/v3",
                        dependencies=[Depends(api_key_scheme)])
     register_upstream_routes(app, api_key_dependency=Depends(api_key_scheme))
     return app

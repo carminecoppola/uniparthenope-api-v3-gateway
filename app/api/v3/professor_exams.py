@@ -102,6 +102,31 @@ def elenco_appelli(
                            lambda c: c.list(cdsId, adId, aaId, visibility))
 
 
+@router.get("/professors/me/exam-sessions/form")
+def modulo_appello(
+    cdsId: int,
+    adId: int,
+    aaId: int,
+    request: Request,
+    tipoProva: str = "PF",
+    appId: int | None = None,
+    sessione: Session = Depends(get_session),
+):
+    """Campi e opzioni ammesse per creare (o, se appId è indicato,
+    modificare) un appello: il client la usa per costruire le "opzioni
+    avanzate" (tipo esame, partizionamento, aula, riservato al docente...)
+    con i valori realmente ammessi da ESSE3 invece di indovinarli."""
+
+    def azione(calendario):
+        if appId is not None:
+            modulo = calendario.edit_form(appId, cdsId, adId, aaId, tipoProva.upper())
+        else:
+            modulo = calendario.new_form(cdsId, adId, aaId, tipoProva.upper())
+        return {"modalita": modulo["modalita"], "campi": modulo["campi"]}
+
+    return _con_calendario(request, sessione, azione)
+
+
 @router.post("/professors/me/exam-sessions", status_code=201)
 def crea_appello(
     dati: DatiAppello,

@@ -147,6 +147,25 @@ class MockWebCalendarAdapter:
         return {"dryRun": False, "applied": True}
 
 
+class MockGraduationAdapter:
+    """Simula la pagina "Laureandi assegnati": stessa forma dei dati reali
+    (matricola/nominativo/ruoloDocente/...), per sviluppare e provare la UI
+    docente senza credenziali reali."""
+
+    def theses(self):
+        items = [
+            {"matricola": "0124001111", "nominativo": "ROSSI MARIO",
+             "ruoloDocente": "Primo relatore", "dataApprovazioneTesi": "2026-05-10",
+             "sessioneLaurea": "Sessione Anticipata ed Estiva (A.A. 2025/2026) [mock]",
+             "dataAppello": "2026-07-24", "appello": "Appello di prova [mock]",
+             "statoTesi": "Approvata", "dataAssegnazioneTesi": "2026-01-15",
+             "corso": {"cod": "0124", "des": "INFORMATICA [mock]",
+                      "tipo": "Corso di Laurea Triennale"},
+             "tesiId": 1, "persId": 1, "domCtId": 1},
+        ]
+        return {"items": items, "count": len(items)}
+
+
 class MockEsse3Adapter:
     name = "mock"
 
@@ -170,6 +189,9 @@ class MockEsse3Adapter:
         """Stesso nome di metodo dell'adapter reale: nessuna ramificazione
         nelle rotte. In mock non serve ESSE3_WEB_BASE, ne' rete."""
         return MockWebCalendarAdapter()
+
+    def open_graduation(self, settings):
+        return MockGraduationAdapter()
 
     # -- carriera ----------------------------------------------------------
     def get_plan(self, career_id: int):
