@@ -273,6 +273,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(body["count"], 1)
         self.assertIn("nominativo", body["items"][0])
 
+    def test_professor_exam_enrollments_pdf(self):
+        r = self.client.get(
+            "/v3/professors/me/exam-sessions/9001/enrollments/pdf"
+            "?cdsId=10256&adId=2649&aaId=2025",
+            headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers["content-type"], "application/pdf")
+        self.assertTrue(r.content.startswith(b"%PDF"))
+
     # -- health -----------------------------------------------------------------
     def test_health(self):
         r = self.client.get("/v3/health")

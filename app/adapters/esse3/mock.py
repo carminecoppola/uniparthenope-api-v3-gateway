@@ -160,6 +160,16 @@ class MockWebCalendarAdapter:
                 "dateAppello": f"{dati['dataAppello']} {dati['ora']}:{dati['minuti']}",
                 "totaleIscritti": len(items), "items": items, "count": len(items)}
 
+    def enrolled_students_pdf(self, app_id, cds_id, ad_id, aa_id) -> bytes:
+        if int(app_id) not in self._items:
+            raise NotFound("Appello non trovato (mock).")
+        # PDF minimo ma valido, sufficiente per provare il download in app
+        # senza generare davvero un documento con ReportLab/simili.
+        return (b"%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+                b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+                b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]>>endobj\n"
+                b"trailer<</Root 1 0 R>>")
+
 
 class MockGraduationAdapter:
     """Simula la pagina "Laureandi assegnati": stessa forma dei dati reali

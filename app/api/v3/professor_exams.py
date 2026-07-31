@@ -184,6 +184,25 @@ def elenco_iscritti(
                            lambda c: c.enrolled_students(app_id, cdsId, adId, aaId))
 
 
+@router.get("/professors/me/exam-sessions/{app_id}/enrollments/pdf")
+def pdf_iscritti(
+    app_id: int,
+    cdsId: int,
+    adId: int,
+    aaId: int,
+    request: Request,
+    sessione: Session = Depends(get_session),
+):
+    """PDF ufficiale "Iscritti appello - Dettaglio", generato da ESSE3
+    stesso (intestazione Ateneo, non ricostruita lato gateway): lo stesso
+    documento che il docente otterrebbe da "Stampa Lista Iscritti"."""
+    pdf = _con_calendario(request, sessione,
+                         lambda c: c.enrolled_students_pdf(app_id, cdsId, adId, aaId))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition":
+                            f'attachment; filename="iscritti_appello_{app_id}.pdf"'})
+
+
 @router.delete("/professors/me/exam-sessions/{app_id}")
 def cancella_appello(
     app_id: int,

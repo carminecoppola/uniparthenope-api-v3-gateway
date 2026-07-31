@@ -28,6 +28,7 @@ FORM_PATH = f"{BASE_PATH}/InserisciAggiornaAppelloCalEsa.do"
 SUBMIT_PATH = f"{BASE_PATH}/InserisciAggiornaAppelloCalEsaSubmit.do"
 ROOMS_PATH = f"{BASE_PATH}/LookupAule.do"
 CANCEL_PATH = f"{BASE_PATH}/CancellaAppelloCalEsa.do"
+ENROLLED_PDF_PATH = f"{BASE_PATH}/ListaStudentiEsameStampa.do"
 # Punto d'ingresso usato solo per innescare il login SSO (Shibboleth):
 # qualunque pagina protetta andrebbe bene, questa è quella verificata.
 LOGIN_ENTRY_PATH = "/auth/docente/AreaDocente.do"
@@ -581,13 +582,14 @@ class WebCalendarAdapter:
             form_data["_action"] = _absolute(response, form_data["_action"])
         return form_data
 
-    def enrolled_students(self, app_id, cds_id, ad_id, aa_id):
-        """Studenti iscritti a un appello ("Lista studenti iscritti
-        all'Appello"): stesso schema di edit_form/delete, si cerca nella
-        Lista Appelli già caricata il form con l'icona "Lista studenti
-        iscritti" per QUESTO app_id e lo si sottopone così com'è (contiene
-        già tutti i parametri nella propria action, nessun campo aggiuntivo).
-        """
+    def _fetch_enrolled_page(self, app_id, cds_id, ad_id, aa_id):
+        """POST verso "Lista studenti iscritti all'Appello": stesso schema
+        di edit_form/delete, si cerca nella Lista Appelli già caricata il
+        form con l'icona corrispondente per QUESTO app_id e lo si sottopone
+        così com'è (contiene già tutti i parametri nella propria action,
+        nessun campo aggiuntivo). Ritorna la risposta grezza, condivisa fra
+        enrolled_students (la interpreta) ed enrolled_students_pdf (ci trova
+        dentro il link "Stampa Lista Iscritti")."""
         self.list(cds_id, ad_id, aa_id)  # assicura il contesto "Lista Appelli" giusto
         soup = BeautifulSoup(self._list_page.text, "html.parser")
         target_form = None
@@ -602,11 +604,35 @@ class WebCalendarAdapter:
         if target_form is None:
             raise UpstreamContract(
                 f"Appello {app_id} non trovato (o senza iscritti) nella Lista Appelli.")
-        response = self._request("POST", _absolute(self._list_page, target_form["action"]))
+        return self._request("POST", _absolute(self._list_page, target_form["action"]))
+
+    def enrolled_students(self, app_id, cds_id, ad_id, aa_id):
+        """Studenti iscritti a un appello: matricola, nominativo, esito..."""
+        response = self._fetch_enrolled_page(app_id, cds_id, ad_id, aa_id)
         result = parse_enrolled_students(response.text)
         if result["descrizioneAppello"] is None:
             raise UpstreamContract("Pagina 'Lista studenti iscritti' non riconosciuta.")
         return result
+
+    def enrolled_students_pdf(self, app_id, cds_id, ad_id, aa_id) -> bytes:
+        """PDF ufficiale "Iscritti appello - Dettaglio" generato da ESSE3
+        stesso (stessa intestazione con Ateneo/logo delle stampe ufficiali),
+        via il link "Stampa Lista Iscritti" trovato nella pagina degli
+        iscritti — non si ricostruiscono i parametri a mano: si segue il
+        link reale, che porta già con sé i valori corretti per QUESTO
+        appello (verificato il 31/07/2026 con un appello reale)."""
+        response = self._fetch_enrolled_page(app_id, cds_id, ad_id, aa_id)
+        soup = BeautifulSoup(response.text, "html.parser")
+        link = next((a for a in soup.find_all("a", href=True)
+                    if "ListaStudentiEsameStampa.do" in a["href"]), None)
+        if link is None:
+            raise UpstreamContract("Link di stampa 'Lista Iscritti' non trovato.")
+        pdf_response = self._request("GET", _absolute(response, link["href"]))
+        content_type = pdf_response.headers.get("content-type", "")
+        if "pdf" not in content_type.lower():
+            raise UpstreamContract(
+                f"Risposta inattesa per il PDF iscritti (content-type: {content_type}).")
+        return pdf_response.content
 
     def delete(self, app_id, cds_id, ad_id, aa_id):
         """Cancella un appello con un'unica POST a CancellaAppelloCalEsa.do
