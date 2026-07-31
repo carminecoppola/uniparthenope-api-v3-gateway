@@ -166,6 +166,38 @@ class MockGraduationAdapter:
         return {"items": items, "count": len(items)}
 
 
+class MockRegisterAdapter:
+    """Simula il registro lezioni: stessa forma dei dati reali (data/ore/
+    titolo/tipoAttivita, ore previste/inserite/mancanti)."""
+
+    def years(self):
+        items = [{"aaOffId": 2025, "label": "2025/2026 [mock]", "selected": True}]
+        return {"items": items, "count": len(items)}
+
+    def list(self, aa_off_id=None):
+        items = [
+            {"adLogId": 90001, "partCod": "S1", "aaOffId": 2025,
+             "adDes": "CLOUD COMPUTING [mock]", "adCod": "A001026",
+             "partizione": "Nessun partizionamento", "orePreviste": 48,
+             "periodo": "Primo Ciclo Semestrale", "stato": "Stampato"},
+        ]
+        return {"items": items, "count": len(items)}
+
+    def detail(self, ad_log_id, aa_off_id, part_cod="S1"):
+        return {
+            "adDes": "CLOUD COMPUTING [mock]", "adCod": "A001026",
+            "annoAccademico": "2025/2026", "docente": "Docente Di Prova",
+            "statoRegistro": "Stampato", "orePreviste": 48, "oreInserite": 4,
+            "oreMancanti": 44,
+            "lezioni": [
+                {"dettRegId": 1, "data": "2026-03-02", "ore": 2.0,
+                 "titolo": "Introduzione [mock]", "tipoAttivita": "lezione"},
+                {"dettRegId": 2, "data": "2026-03-03", "ore": 2.0,
+                 "titolo": "Fondamenti [mock]", "tipoAttivita": "lezione"},
+            ],
+        }
+
+
 class MockEsse3Adapter:
     name = "mock"
 
@@ -192,6 +224,9 @@ class MockEsse3Adapter:
 
     def open_graduation(self, settings):
         return MockGraduationAdapter()
+
+    def open_register(self, settings):
+        return MockRegisterAdapter()
 
     # -- carriera ----------------------------------------------------------
     def get_plan(self, career_id: int):

@@ -262,6 +262,26 @@ class ApiTests(unittest.TestCase):
             self.assertIn(operation["path"], paths)
             self.assertIn(operation["method"].lower(), paths[operation["path"]])
 
+    # -- registro lezioni (docente) ---------------------------------------------
+    def test_professor_register_list_and_detail(self):
+        r = self.client.get("/v3/professors/me/register", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["count"], 1)
+        ad_log_id = body["items"][0]["adLogId"]
+
+        detail = self.client.get(
+            f"/v3/professors/me/register/{ad_log_id}?aaOffId=2025",
+            headers=self.auth)
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["oreMancanti"], 44)
+        self.assertEqual(len(detail.json()["lezioni"]), 2)
+
+    def test_professor_register_years(self):
+        r = self.client.get("/v3/professors/me/register/years", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["count"], 1)
+
     # -- health -----------------------------------------------------------------
     def test_health(self):
         r = self.client.get("/v3/health")
