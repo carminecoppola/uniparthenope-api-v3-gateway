@@ -21,6 +21,22 @@ BOOKABLE_STATUSES = {"P", "I"}
 _DATE_ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
 _DATE_DMY = re.compile(r"^(\d{2})/(\d{2})/(\d{4})")
 
+# Stato dell'esito di un insegnamento nel libretto. Un codice non elencato
+# qui NON viene tradotto a caso: resta il codice originale e va segnalato
+# a parte (vedi map_plan/map_exam_outcome), mai mascherato in silenzio.
+LIBRETTO_STATUS = {
+    "S": ("Superato", True), "SUP": ("Superato", True),
+    "SUPERATO": ("Superato", True), "SUPERATA": ("Superato", True),
+    "V": ("Superato", True), "VER": ("Superato", True),
+    "VERBALIZZATO": ("Superato", True),
+    "F": ("Frequentato", False), "FRE": ("Frequentato", False),
+    "FREQ": ("Frequentato", False), "FREQUENTATO": ("Frequentato", False),
+    "FREQUENTATA": ("Frequentato", False),
+    "P": ("Pianificato", False), "PIA": ("Pianificato", False),
+    "PIAN": ("Pianificato", False), "PIANIFICATO": ("Pianificato", False),
+    "PIANIFICATA": ("Pianificato", False),
+}
+
 
 def normalize_date(value) -> str:
     if not value:
@@ -51,11 +67,63 @@ def _int_or_none(value):
         return None
 
 
+def _float_or_none(value):
+    try:
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def _truthy(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().upper() in ("1", "S", "SI", "Y", "YES", "TRUE", "X")
+
+
+def _grade_text(value) -> str:
+    """Il voto come testo, senza decimali inutili (24.0 -> '24').
+
+    Un'idoneità non è un numero: resta la parola così com'è.
+    """
+    if value in (None, ""):
+        return ""
+    number = _float_or_none(value)
+    if number is None:
+        return str(value).strip()
+    if number == int(number):
+        return str(int(number))
+    return str(number)
+
+
+def read_libretto_status(entry: dict):
+    """Ricava (codice, descrizione, superato, riconosciuto) da una riga
+    grezza di libretto o dalla risposta di checkExams. Se il codice non è
+    fra quelli noti resta invariato e riconosciuto=False, così il
+    chiamante può segnalarlo invece di mostrare un dato inventato.
+    """
+    raw = _first(entry, "statoDes", "stato", "adsceStatoCod", "statoCod",
+                "esitoDes", "esito", default="")
+    code = str(raw).strip().upper()
+    if code in LIBRETTO_STATUS:
+        des, passed = LIBRETTO_STATUS[code]
+        return code, des, passed, True
+    if not code:
+        return "", "", False, True
+    return code, code.capitalize(), False, False
+
+
 def map_plan(raw, career_id=None):
     """Ritorna (righe_valide, scartate).
 
     Accetta sia una lista sia il wrapper {"dettaglioTratto": [...]}.
     Una riga senza adsceId o adId è malformata: scartata e contata.
+
+    Se la riga del libretto contiene già stato/voto (capita non sempre:
+    dipende da cosa restituisce esse3 per quella carriera), vengono presi
+    da qui — zero chiamate aggiuntive per quell'insegnamento in
+    get_exam_outcomes_batch.
     """
     if isinstance(raw, dict):
         raw = _first(raw, "dettaglioTratto", "plan", "righe", default=[])
@@ -69,14 +137,89 @@ def map_plan(raw, career_id=None):
         if adsce is None or ad is None:
             skipped += 1
             continue
+
+        code, des, passed, _recognized = read_libretto_status(item)
+        grade = _grade_text(_first(item, "esitoFinale", "voto", "votoEsame"))
+        # Un voto registrato vale più del codice di stato: se c'è il voto,
+        # l'esame è superato anche se il codice non lo dice esplicitamente.
+        if grade and not passed:
+            passed = True
+            if not des:
+                des = "Superato"
+        outcome_known = bool(des) or bool(grade)
+
         entries.append(PlanEntry(
             adsce_id=adsce,
             ad_id=ad,
-            ad_des=str(_first(item, "adDes", "ad_des", "des", default="")),
+            # "nome" e' la chiave reale del libretto legacy (verificato il
+            # 31/07/2026 con account studente reale: adDes/des non esistono
+            # in questa risposta, sempre rimasti vuoti finora).
+            ad_des=str(_first(item, "nome", "adDes", "ad_des", "des", default="")),
             aa_off_id=_int_or_none(_first(item, "aaOffId", "aa_off_id")),
             career_id=career_id,
+            codice=str(_first(item, "codice", "adCod", default="")),
+            cfu=_float_or_none(_first(item, "CFU", "peso", "cfu", "crediti")),
+            anno=_int_or_none(_first(item, "annoId", "annoCorso", "anno", "aaOrdId")),
+            semestre=str(_first(item, "semestre", "periodoDes", "partizione",
+                                default="")),
+            stato=code,
+            stato_des=des,
+            passed=passed,
+            grade=grade,
+            honors=_truthy(_first(item, "lodeFlg", "lode", default=False)),
+            exam_date=normalize_date(_first(item, "dataEsame", "dataApp",
+                                            "dataSuperamento", "data")),
+            teacher=str(_first(item, "docente", "docenteDes", default="")),
+            outcome_known=outcome_known,
         ))
     return entries, skipped
+
+
+def map_exam_outcome(raw) -> dict | None:
+    """Interpreta la risposta di checkExams per un singolo insegnamento.
+
+    Ritorna un dizionario con le chiavi già lette (stato/voto/lode/data/
+    docente) da fondere in una PlanEntry con apply_exam_outcome, oppure
+    None se la risposta non dice nulla di utile: meglio un campo vuoto
+    che un esito inventato.
+    """
+    if isinstance(raw, list):
+        raw = raw[0] if raw else None
+    if not isinstance(raw, dict):
+        return None
+
+    code, des, passed, _recognized = read_libretto_status(raw)
+    grade = _grade_text(_first(raw, "esitoFinale", "voto", "votoEsame"))
+    if grade and not passed:
+        passed = True
+        if not des:
+            des = "Superato"
+    if not des and not grade:
+        return None
+
+    return {
+        "stato": code,
+        "stato_des": des,
+        "passed": passed,
+        "grade": grade,
+        "honors": _truthy(_first(raw, "lodeFlg", "lode", default=False)),
+        "exam_date": normalize_date(_first(raw, "dataEsame", "dataApp",
+                                           "dataSuperamento", "data")),
+        "teacher": str(_first(raw, "docente", "docenteDes", default="")),
+    }
+
+
+def apply_exam_outcome(entry: PlanEntry, outcome: dict | None) -> PlanEntry:
+    """Fonde l'esito letto a parte in una PlanEntry già esistente.
+
+    Se l'esito è None la riga torna invariata: un insegnamento la cui
+    lettura fallisce resta comunque nell'elenco, senza esito e senza dati
+    inventati (l'errore va segnalato a parte dal chiamante).
+    """
+    from dataclasses import replace
+    if outcome is None:
+        return entry
+    return replace(entry, outcome_known=True, **outcome)
 
 
 def map_exam_sessions(raw):

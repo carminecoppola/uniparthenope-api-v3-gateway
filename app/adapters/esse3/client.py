@@ -36,6 +36,7 @@ CHECK_APPELLO_PATH = "/UniparthenopeApp/v1/students/checkAppello/{cds_id}/{ad_id
 BOOK_PATH = "/UniparthenopeApp/v1/students/bookExam/{cds_id}/{ad_id}/{app_id}"
 DELETE_PATH = "/UniparthenopeApp/v1/students/deleteExam/{cds_id}/{ad_id}/{app_id}/{stu_id}"
 RESERVATIONS_PATH = "/UniparthenopeApp/v1/students/getReservations/{mat_id}"
+CHECK_EXAM_PATH = "/UniparthenopeApp/v1/students/checkExams/{mat_id}/{adsce_id}"
 STUDENT_PHOTO_PATH = "/UniparthenopeApp/v1/general/image/{ref}"
 PROFESSOR_PHOTO_PATH = "/UniparthenopeApp/v1/general/image_prof/{ref}"
 CALESA_APPELLI_PATH = "/calesa-service-v1/appelli/{cds_id}/{ad_id}"
@@ -478,6 +479,50 @@ class Esse3Adapter:
             sessioni.extend(mappate)
             scartate_tot += scartate
         return sessioni, scartate_tot, errori
+
+    # -- esiti del libretto --------------------------------------------------------
+    def get_exam_outcomes_batch(self, career: Career, adsce_ids: list[int],
+                                workers: int | None = None):
+        """Legge in parallelo l'esito (stato/voto) di più righe di libretto.
+
+        Prima di questa API il client chiamava checkExams un adsceId alla
+        volta (schermata Corsi lenta con carriere piene). Ritorna
+        (esiti_mappati, errori_per_adsceId): un insegnamento che fallisce
+        non fa fallire gli altri, resta nel dizionario errori con lo status
+        HTTP originale, esattamente come già fa get_exam_sessions_batch per
+        gli appelli.
+        """
+        if career.mat_id is None:
+            raise UpstreamContract(
+                "Carriera priva di matId: impossibile leggere gli esiti.")
+        if not adsce_ids:
+            return {}, {}
+
+        settings = self._t.settings
+        default_workers = getattr(settings, "plan_outcome_workers", 8) if settings else 8
+        max_workers = getattr(settings, "plan_outcome_max_workers", 20) if settings else 20
+        timeout = getattr(settings, "plan_outcome_timeout_s", 6.0) if settings else 6.0
+        n = max(1, min(workers or default_workers, max_workers, len(adsce_ids)))
+
+        def leggi(adsce_id):
+            path = CHECK_EXAM_PATH.format(mat_id=career.mat_id, adsce_id=adsce_id)
+            try:
+                resp = self._t.request("GET", path, auth=self._auth, timeout=timeout)
+                return adsce_id, mappers.map_exam_outcome(self._t.json_of(resp, path)), None
+            except Exception as exc:  # una riga non deve far cadere il batch
+                status = getattr(exc, "status", 502)
+                logger.warning("Esito libretto: adsceId=%s fallito: %s", adsce_id, exc)
+                return adsce_id, None, {"status": status, "message": str(exc)}
+
+        outcomes: dict[int, dict] = {}
+        errors: dict[int, dict] = {}
+        with ThreadPoolExecutor(max_workers=n) as pool:
+            for adsce_id, outcome, error in pool.map(leggi, adsce_ids):
+                if error is not None:
+                    errors[adsce_id] = error
+                elif outcome is not None:
+                    outcomes[adsce_id] = outcome
+        return outcomes, errors
 
     # -- prenotazioni ------------------------------------------------------------
     def book_exam(self, career: Career, app_id: int, ad_id: int, adsce_id: int):

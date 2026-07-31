@@ -22,6 +22,23 @@ class PlanEntry:
     ad_des: str = ""
     aa_off_id: int | None = None
     career_id: int | None = None
+    # Esito dell'insegnamento (stato/voto/crediti...): quando il libretto
+    # upstream li contiene già non serve nessuna chiamata in più; altrimenti
+    # restano ai valori di default e vanno completati da get_exam_outcomes_batch
+    # (endpoint /plan?withOutcomes=true). outcome_known distingue "esito letto,
+    # ma nessun voto perché è un esame non ancora sostenuto" da "non ancora letto".
+    codice: str = ""
+    cfu: float | None = None
+    anno: int | None = None
+    semestre: str = ""
+    stato: str = ""
+    stato_des: str = ""
+    passed: bool = False
+    grade: str = ""
+    honors: bool = False
+    exam_date: str = ""
+    teacher: str = ""
+    outcome_known: bool = False
 
 
 @dataclass(frozen=True)

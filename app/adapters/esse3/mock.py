@@ -213,6 +213,27 @@ class MockEsse3Adapter:
                  for ad_id in ad_ids if ad_id not in {s.ad_id for s in sessions}}
         return filtrate, skipped, errori
 
+    # -- esiti del libretto ------------------------------------------------------
+    _RAW_OUTCOMES = {
+        91001: {"stato": "SUP", "esitoFinale": 28, "lodeFlg": False,
+               "dataEsame": "2026-06-10", "docente": "Rossi"},
+        91002: {"stato": "P"},
+    }
+
+    def get_exam_outcomes_batch(self, career, adsce_ids: list[int],
+                                workers: int | None = None):
+        outcomes, errors = {}, {}
+        for adsce_id in adsce_ids:
+            raw = self._RAW_OUTCOMES.get(adsce_id)
+            if raw is None:
+                errors[adsce_id] = {"status": 404,
+                                    "message": "Nessun esito mock per questo adsceId."}
+                continue
+            outcome = mappers.map_exam_outcome(raw)
+            if outcome is not None:
+                outcomes[adsce_id] = outcome
+        return outcomes, errors
+
     # -- prenotazioni ---------------------------------------------------------
     def book_exam(self, career, app_id: int, ad_id: int, adsce_id: int):
         assert adsce_id is not None, "il servizio non deve mai arrivare qui con None"

@@ -88,6 +88,15 @@ class Settings:
     bus_ttl_s: int = 3_600
     dining_ttl_s: int = 3_600
     plan_ttl_s: int = 900
+    # Esiti del libretto (voto/stato per insegnamento): letti in parallelo,
+    # non uno alla volta come faceva il client legacy — un esame già
+    # superato non cambia più, quindi resta in cache molto più a lungo di
+    # uno ancora da sostenere.
+    plan_outcome_ttl_s: int = 900
+    plan_outcome_passed_ttl_s: int = 86_400
+    plan_outcome_workers: int = 8
+    plan_outcome_max_workers: int = 20
+    plan_outcome_timeout_s: float = 6.0
     # Interruttore v3/proxy per rotta
     route_flags: dict = field(default_factory=dict)
 
@@ -117,6 +126,11 @@ def load_settings() -> Settings:
         bus_ttl_s=_int_env("BUS_TTL_S", 3_600),
         dining_ttl_s=_int_env("DINING_TTL_S", 3_600),
         plan_ttl_s=_int_env("PLAN_TTL_S", 900),
+        plan_outcome_ttl_s=_int_env("PLAN_OUTCOME_TTL_S", 900),
+        plan_outcome_passed_ttl_s=_int_env("PLAN_OUTCOME_PASSED_TTL_S", 86_400),
+        plan_outcome_workers=_int_env("PLAN_OUTCOME_WORKERS", 8),
+        plan_outcome_max_workers=_int_env("PLAN_OUTCOME_MAX_WORKERS", 20),
+        plan_outcome_timeout_s=_float_env("PLAN_OUTCOME_TIMEOUT_S", 6.0),
         route_flags=_route_flags(),
     )
 

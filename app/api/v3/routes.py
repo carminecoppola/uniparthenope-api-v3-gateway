@@ -15,9 +15,10 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from ...core.errors import RateLimited, SessionExpired, ValidationFailed
+from ...core.errors import (PlanEntryNotFound, RateLimited, SessionExpired,
+                            ValidationFailed)
 from ...core.security import Session
-from ...domain.booking import BookingService
+from ...domain.booking import BookingService, filter_entries
 
 router = APIRouter()
 
@@ -45,9 +46,13 @@ def _career(session: Session):
 
 
 def _booking(request: Request, session: Session) -> BookingService:
-    return BookingService(_adapter(session),
-                          plan_cache=request.app.state.plan_cache,
-                          plan_ttl_s=request.app.state.settings.plan_ttl_s)
+    settings = request.app.state.settings
+    return BookingService(
+        _adapter(session), plan_cache=request.app.state.plan_cache,
+        plan_ttl_s=settings.plan_ttl_s,
+        outcome_ttl_s=getattr(settings, "plan_outcome_ttl_s", 900),
+        outcome_passed_ttl_s=getattr(settings, "plan_outcome_passed_ttl_s", 86_400),
+        outcome_workers=getattr(settings, "plan_outcome_workers", 8))
 
 
 # ---------------------------------------------------------------- modelli I/O
@@ -131,9 +136,74 @@ def me(session: Session = Depends(get_session)):
 
 
 @router.get("/students/me/plan", tags=["students"])
-def my_plan(request: Request, session: Session = Depends(get_session)):
-    entries = _booking(request, session).plan(session.career_id)
-    return {"items": [asdict(e) for e in entries], "count": len(entries)}
+def my_plan(request: Request, session: Session = Depends(get_session),
+           withOutcomes: bool = True, anno: int | None = None,
+           semestre: str | None = None, stato: str | None = None,
+           workers: int | None = None):
+    """Piano di studi con stato/voto/crediti per insegnamento.
+
+    Gli esiti mancanti vengono letti tutti insieme in una sola attesa
+    invece che uno alla volta (schermata Corsi altrimenti lenta con
+    carriere piene): vedi BookingService.complete_outcomes. Un
+    insegnamento il cui esito non arriva resta comunque nell'elenco,
+    senza esito, con il motivo in `errors`.
+    """
+    svc = _booking(request, session)
+    career = _career(session)
+    if withOutcomes:
+        entries, stats, errors = svc.plan_with_outcomes(career, workers=workers)
+    else:
+        entries = svc.plan(session.career_id)
+        stats, errors = {"giaNelLibretto": len(entries), "daMemoria": 0,
+                         "letteAdesso": 0}, {}
+
+    selected = filter_entries(entries, anno=anno, semestre=semestre, stato=stato)
+
+    result = {"items": [asdict(e) for e in selected], "count": len(selected),
+              "totaleLibretto": len(entries), "letture": stats}
+    if errors:
+        result["errors"] = {str(k): v for k, v in errors.items()}
+    return result
+
+
+@router.get("/students/me/plan-summary", tags=["students"])
+def plan_summary(request: Request, session: Session = Depends(get_session),
+                 workers: int | None = None):
+    """Crediti acquisiti, esami superati e medie — nessuna attesa in più
+    rispetto all'elenco: usa gli stessi dati già completati."""
+    return _booking(request, session).plan_summary(_career(session), workers=workers)
+
+
+@router.get("/students/me/plan/{adsce_id}", tags=["students"])
+def plan_entry_detail(adsce_id: int, request: Request,
+                      session: Session = Depends(get_session),
+                      workers: int | None = None):
+    """Un solo insegnamento del libretto, completo di esito."""
+    result = _booking(request, session).entry_detail(
+        _career(session), adsce_id, workers=workers)
+    if result is None:
+        raise PlanEntryNotFound(
+            f"Nessun insegnamento con adsceId {adsce_id} nel libretto.")
+    entry, errors = result
+    payload = asdict(entry)
+    if errors:
+        payload["errors"] = {str(k): v for k, v in errors.items()}
+    return payload
+
+
+@router.post("/students/me/plan/{adsce_id}/refresh", tags=["students"])
+def plan_entry_refresh(adsce_id: int, request: Request,
+                       session: Session = Depends(get_session)):
+    """Rilegge l'esito di un solo insegnamento, dimenticando solo quello."""
+    result = _booking(request, session).refresh_entry(_career(session), adsce_id)
+    if result is None:
+        raise PlanEntryNotFound(
+            f"Nessun insegnamento con adsceId {adsce_id} nel libretto.")
+    entry, errors = result
+    payload = asdict(entry)
+    if errors:
+        payload["errors"] = {str(k): v for k, v in errors.items()}
+    return payload
 
 
 @router.get("/students/me/reservations", tags=["students"])

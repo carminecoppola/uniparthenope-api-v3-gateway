@@ -113,6 +113,64 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()["code"], "validation_failed")
 
+    # -- piano di studi con esiti ----------------------------------------------
+    def test_plan_with_outcomes_reads_grades_in_parallel(self):
+        r = self.client.get("/v3/students/me/plan", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["count"], 2)  # la riga 103 e' malformata, scartata
+        by_ad = {i["ad_id"]: i for i in body["items"]}
+        self.assertTrue(by_ad[101]["passed"])
+        self.assertEqual(by_ad[101]["grade"], "28")
+        self.assertFalse(by_ad[102]["passed"])
+        self.assertEqual(by_ad[102]["stato_des"], "Pianificato")
+        self.assertEqual(body["letture"]["letteAdesso"], 2)
+
+    def test_plan_without_outcomes_skips_the_extra_reads(self):
+        r = self.client.get("/v3/students/me/plan?withOutcomes=false",
+                            headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["letture"]["letteAdesso"], 0)
+        self.assertFalse(body["items"][0]["outcome_known"])
+
+    def test_plan_second_read_comes_from_cache(self):
+        self.client.get("/v3/students/me/plan", headers=self.auth)
+        r = self.client.get("/v3/students/me/plan", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        # Il libretto e gli esiti sono già in cache: nessuna lettura upstream.
+        self.assertEqual(r.json()["letture"]["letteAdesso"], 0)
+
+    def test_plan_filters_by_stato(self):
+        r = self.client.get("/v3/students/me/plan?stato=superato", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["count"], 1)
+        self.assertEqual(body["items"][0]["ad_id"], 101)
+        self.assertEqual(body["totaleLibretto"], 2)
+
+    def test_plan_summary_no_extra_reads_over_plan(self):
+        r = self.client.get("/v3/students/me/plan-summary", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["superati"], 1)
+        self.assertEqual(body["mediaAritmetica"], 28)
+
+    def test_plan_entry_detail_and_not_found(self):
+        r = self.client.get("/v3/students/me/plan/91001", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["grade"], "28")
+
+        missing = self.client.get("/v3/students/me/plan/999999", headers=self.auth)
+        self.assertEqual(missing.status_code, 422)
+        self.assertEqual(missing.json()["code"], "plan_entry_not_found")
+
+    def test_plan_entry_refresh_rereads_only_that_course(self):
+        self.client.get("/v3/students/me/plan", headers=self.auth)  # popola la cache
+        r = self.client.post("/v3/students/me/plan/91001/refresh", headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["grade"], "28")
+
     # -- prenotazione (PRB-12) ------------------------------------------------
     def test_booking_happy_path_and_conflict(self):
         r = self.client.post("/v3/exam-sessions/501/reservations",

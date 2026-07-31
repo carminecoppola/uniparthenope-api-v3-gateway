@@ -65,5 +65,25 @@ class TTLCache:
                                  "stale_until": now + horizon})
             return value, False
 
+    def get(self, key):
+        """Valore fresco senza attivare un loader, o None se assente/scaduto.
+
+        Serve dove il chiamante vuole distinguere "già in cache" da
+        "manca, va letto" PRIMA di decidere cosa leggere (es. batch: si
+        raccolgono solo le chiavi mancanti invece di richiamare get_or_load
+        una per una).
+        """
+        entry = self._entries.get(key)
+        if entry is not None and self._now() <= entry["fresh_until"]:
+            self._entries.move_to_end(key)
+            return entry["value"]
+        return None
+
+    def set(self, key, value, ttl: float, stale_ttl: float | None = None) -> None:
+        now = self._now()
+        horizon = stale_ttl if stale_ttl is not None else ttl
+        self._remember(key, {"value": value, "fresh_until": now + ttl,
+                             "stale_until": now + horizon})
+
     def invalidate(self, key) -> None:
         self._entries.pop(key, None)
