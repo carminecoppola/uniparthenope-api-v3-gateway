@@ -169,6 +169,21 @@ def modifica_appello(
     return _con_calendario(request, sessione, azione)
 
 
+@router.get("/professors/me/exam-sessions/{app_id}/enrollments")
+def elenco_iscritti(
+    app_id: int,
+    cdsId: int,
+    adId: int,
+    aaId: int,
+    request: Request,
+    sessione: Session = Depends(get_session),
+):
+    """Studenti iscritti a un appello: matricola, nominativo, data di
+    nascita, anno di frequenza, CFU ed esito eventuale."""
+    return _con_calendario(request, sessione,
+                           lambda c: c.enrolled_students(app_id, cdsId, adId, aaId))
+
+
 @router.delete("/professors/me/exam-sessions/{app_id}")
 def cancella_appello(
     app_id: int,

@@ -262,6 +262,17 @@ class ApiTests(unittest.TestCase):
             self.assertIn(operation["path"], paths)
             self.assertIn(operation["method"].lower(), paths[operation["path"]])
 
+    # -- iscritti agli appelli (docente) -----------------------------------------
+    def test_professor_exam_enrollments(self):
+        r = self.client.get(
+            "/v3/professors/me/exam-sessions/9001/enrollments"
+            "?cdsId=10256&adId=2649&aaId=2025",
+            headers=self.auth)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["count"], 1)
+        self.assertIn("nominativo", body["items"][0])
+
     # -- health -----------------------------------------------------------------
     def test_health(self):
         r = self.client.get("/v3/health")

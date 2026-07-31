@@ -285,6 +285,48 @@ def parse_exam_list(html: str) -> dict:
             "items": items, "count": len(items)}
 
 
+# Verificato il 31/07/2026 navigando "Lista studenti iscritti all'Appello"
+# con l'account docente reale: 12 celle per riga dati (colspan collassati
+# dal parser), header "Cognome e Nome" a testo pieno nell'ultima colonna
+# di nome. Nessuna chiave indovinata: solo quello osservato davvero.
+def parse_enrolled_students(html: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    table = next((t for t in soup.find_all("table", class_="detail_table")
+                  if "Matricola" in t.get_text(" ", strip=True)
+                  and "Cognome" in t.get_text(" ", strip=True)), None)
+    items = []
+    if table is not None:
+        for row in table.find_all("tr"):
+            cells = row.find_all("td", recursive=False)
+            if len(cells) < 9 or not cells[0].get_text(strip=True).isdigit():
+                continue
+            items.append({
+                "numero": int(cells[0].get_text(strip=True)),
+                "dataIscrizione": _iso(cells[1].get_text(" ", strip=True)) or None,
+                "matricola": cells[2].get_text(" ", strip=True),
+                "nominativo": cells[3].get_text(" ", strip=True),
+                "codiceAd": cells[5].get_text(" ", strip=True) if len(cells) > 5 else "",
+                "dataNascita": _iso(cells[6].get_text(" ", strip=True)) if len(cells) > 6 else None,
+                "annoFrequenza": cells[7].get_text(" ", strip=True) if len(cells) > 7 else "",
+                "cfu": cells[8].get_text(" ", strip=True) if len(cells) > 8 else "",
+                "esito": cells[9].get_text(" ", strip=True) if len(cells) > 9 else "",
+            })
+
+    def campo(etichetta):
+        th = next((t for t in soup.find_all("th") if t.get_text(strip=True) == etichetta), None)
+        sib = th.find_next_sibling("td") if th else None
+        return sib.get_text(" ", strip=True) if sib else None
+
+    totale = campo("Totale Studenti iscritti:")
+    date_appello = campo("Date Appello:")
+    return {
+        "descrizioneAppello": campo("Descrizione Appello:"),
+        "dateAppello": re.sub(r"\s+", " ", date_appello) if date_appello else None,
+        "totaleIscritti": int(totale) if totale and totale.isdigit() else len(items),
+        "items": items, "count": len(items),
+    }
+
+
 def _field_value(node):
     if node.name == "select":
         selected = node.find("option", selected=True) or node.find("option")
@@ -538,6 +580,33 @@ class WebCalendarAdapter:
         if form_data["_action"]:
             form_data["_action"] = _absolute(response, form_data["_action"])
         return form_data
+
+    def enrolled_students(self, app_id, cds_id, ad_id, aa_id):
+        """Studenti iscritti a un appello ("Lista studenti iscritti
+        all'Appello"): stesso schema di edit_form/delete, si cerca nella
+        Lista Appelli già caricata il form con l'icona "Lista studenti
+        iscritti" per QUESTO app_id e lo si sottopone così com'è (contiene
+        già tutti i parametri nella propria action, nessun campo aggiuntivo).
+        """
+        self.list(cds_id, ad_id, aa_id)  # assicura il contesto "Lista Appelli" giusto
+        soup = BeautifulSoup(self._list_page.text, "html.parser")
+        target_form = None
+        for form in soup.find_all("form"):
+            action = form.get("action") or ""
+            if "ListaStudentiEsame.do" not in action:
+                continue
+            query = parse_qs(urlparse(action).query)
+            if query.get("APP_ID", [None])[0] == str(app_id):
+                target_form = form
+                break
+        if target_form is None:
+            raise UpstreamContract(
+                f"Appello {app_id} non trovato (o senza iscritti) nella Lista Appelli.")
+        response = self._request("POST", _absolute(self._list_page, target_form["action"]))
+        result = parse_enrolled_students(response.text)
+        if result["descrizioneAppello"] is None:
+            raise UpstreamContract("Pagina 'Lista studenti iscritti' non riconosciuta.")
+        return result
 
     def delete(self, app_id, cds_id, ad_id, aa_id):
         """Cancella un appello con un'unica POST a CancellaAppelloCalEsa.do

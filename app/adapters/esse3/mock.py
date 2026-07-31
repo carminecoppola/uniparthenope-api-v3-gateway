@@ -146,6 +146,20 @@ class MockWebCalendarAdapter:
         del self._items[int(app_id)]
         return {"dryRun": False, "applied": True}
 
+    def enrolled_students(self, app_id, cds_id, ad_id, aa_id):
+        dati = self._items.get(int(app_id))
+        if dati is None:
+            raise NotFound("Appello non trovato (mock).")
+        items = [
+            {"numero": 1, "dataIscrizione": "2026-08-20", "matricola": "0120000001",
+             "nominativo": "BIANCHI LUCA [mock]", "codiceAd": "MOCK",
+             "dataNascita": "2000-05-14", "annoFrequenza": "2025/2026",
+             "cfu": "6", "esito": ""},
+        ]
+        return {"descrizioneAppello": dati["descrizione"],
+                "dateAppello": f"{dati['dataAppello']} {dati['ora']}:{dati['minuti']}",
+                "totaleIscritti": len(items), "items": items, "count": len(items)}
+
 
 class MockGraduationAdapter:
     """Simula la pagina "Laureandi assegnati": stessa forma dei dati reali
