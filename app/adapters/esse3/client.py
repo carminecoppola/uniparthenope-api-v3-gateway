@@ -394,12 +394,6 @@ class Esse3Adapter:
         client = self._open_web_client(settings)
         return GraduationAdapter(client)
 
-    def open_register(self, settings):
-        """Adapter del registro lezioni (diario). Stesso nome di metodo
-        comune a mock e reale."""
-        from .register import RegisterAdapter
-        client = self._open_web_client(settings)
-        return RegisterAdapter(client)
 
     def set_career_context(self, careers) -> None:
         self._career_context = {c.career_id: c for c in careers}
