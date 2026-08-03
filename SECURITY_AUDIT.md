@@ -17,7 +17,7 @@ ipotesi (non solo lettura a occhio).
 
 ## Corretto in questo audit
 
-1. **Login legacy senza rate limit** (`app/api/v3/upstream.py`) — il
+1. **Login legacy senza rate limit** (`app/api/v3/upstream/upstream.py`) — il
    pass-through di `/UniparthenopeApp/v1/login` e `/v2/login` bypassava il
    limitatore usato da `/v3/auth/sessions`, riaprendo lo stesso vettore di
    brute-force del sistema originale. Fix: stesso `TokenBucket`, chiave

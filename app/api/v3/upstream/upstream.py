@@ -23,7 +23,7 @@ from typing import Dict, Optional, Tuple
 from fastapi import Request, Response
 from starlette.concurrency import run_in_threadpool
 
-from ...core.errors import AuthRequired, RateLimited, UpstreamNotConfigured
+from ....core.errors import AuthRequired, RateLimited, UpstreamNotConfigured
 
 _CATALOG_PATH = Path(__file__).with_name("upstream_catalog.json")
 CATALOG = json.loads(_CATALOG_PATH.read_text(encoding="utf-8"))

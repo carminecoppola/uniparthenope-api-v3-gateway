@@ -388,3 +388,12 @@ def health(request: Request):
     return {"status": "ok",
             "mode": "mock" if settings.mock_esse3 else "esse3",
             "time": datetime.now(timezone.utc).isoformat()}
+
+
+from .docente.professor_exams import router as professor_exams_router
+from .docente.professor_graduation import router as professor_graduation_router
+from .pta import router as pta_router
+
+router.include_router(professor_exams_router)
+router.include_router(professor_graduation_router)
+router.include_router(pta_router)

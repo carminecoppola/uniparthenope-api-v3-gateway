@@ -12,9 +12,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 
-from ...core.errors import SessionExpired
-from ...core.security import Session
-from .routes import get_session
+from ....core.errors import SessionExpired
+from ....core.security import Session
+from ..routes import get_session
 
 router = APIRouter(tags=["appelli-docente"])
 

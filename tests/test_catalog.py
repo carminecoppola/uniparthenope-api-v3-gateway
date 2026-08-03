@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SWAGGER = json.loads((ROOT / "swagger.json").read_text(encoding="utf-8"))
-CATALOG = json.loads((ROOT / "app/api/v3/upstream_catalog.json").read_text(encoding="utf-8"))
+CATALOG = json.loads((ROOT / "app/api/v3/upstream/upstream_catalog.json").read_text(encoding="utf-8"))
 METHODS = {"get", "post", "put", "delete", "patch", "head", "options"}
 
 

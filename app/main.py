@@ -11,10 +11,8 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
-from .api.v3.professor_exams import router as professor_exams_router
-from .api.v3.professor_graduation import router as professor_graduation_router
 from .api.v3.routes import router
-from .api.v3.upstream import register_upstream_routes
+from .api.v3.upstream.upstream import register_upstream_routes
 from .core.apikeys import ApiKeyStore
 from .core.cache import TTLCache
 from .core.config import settings
@@ -156,11 +154,10 @@ def create_app() -> FastAPI:
             "code": "internal_error", "requestId": request_id,
         }, media_type="application/problem+json")
 
+    # router (routes.py) include già al suo interno docente/ e pta/ via
+    # router.include_router(...): niente più include separati qui, altrimenti
+    # le rotte docente finirebbero registrate due volte.
     app.include_router(router, prefix="/v3", dependencies=[Depends(api_key_scheme)])
-    app.include_router(professor_exams_router, prefix="/v3",
-                       dependencies=[Depends(api_key_scheme)])
-    app.include_router(professor_graduation_router, prefix="/v3",
-                       dependencies=[Depends(api_key_scheme)])
     register_upstream_routes(app, api_key_dependency=Depends(api_key_scheme))
     return app
 

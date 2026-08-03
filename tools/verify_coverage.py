@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = json.loads((ROOT / "swagger.json").read_text(encoding="utf-8"))
-catalog = json.loads((ROOT / "app/api/v3/upstream_catalog.json").read_text(encoding="utf-8"))
+catalog = json.loads((ROOT / "app/api/v3/upstream/upstream_catalog.json").read_text(encoding="utf-8"))
 methods = {"get", "post", "put", "delete", "patch", "head", "options"}
 expected = {(m.upper(), p) for p, item in spec["paths"].items()
             for m in item if m.lower() in methods}

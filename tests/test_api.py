@@ -255,7 +255,7 @@ class ApiTests(unittest.TestCase):
         from pathlib import Path
         root = Path(__file__).resolve().parents[1]
         catalog = json.loads(
-            (root / "app/api/v3/upstream_catalog.json").read_text(encoding="utf-8"))
+            (root / "app/api/v3/upstream/upstream_catalog.json").read_text(encoding="utf-8"))
         openapi = self.client.get("/v3/openapi.json").json()
         paths = openapi["paths"]
         for operation in catalog["operations"]:
