@@ -390,10 +390,14 @@ def health(request: Request):
             "time": datetime.now(timezone.utc).isoformat()}
 
 
+from .studente.appelli import router as studente_appelli_router
+from .studente.prenotazione import router as studente_prenotazione_router
 from .docente.professor_exams import router as professor_exams_router
 from .docente.professor_graduation import router as professor_graduation_router
 from .pta import router as pta_router
 
+router.include_router(studente_appelli_router)
+router.include_router(studente_prenotazione_router)
 router.include_router(professor_exams_router)
 router.include_router(professor_graduation_router)
 router.include_router(pta_router)
